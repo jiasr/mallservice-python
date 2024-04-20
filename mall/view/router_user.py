@@ -5,7 +5,7 @@ from flask import Blueprint
 from flask import request
 from flask_restx import Namespace, Resource, fields
 import logging
-
+from mall.service import  user_service
 
 LOG = logging.getLogger(__name__)
 
@@ -18,4 +18,4 @@ class DemoInstance(Resource):
 
     def post(self):
         data = json.loads(request.data)
-        return data
+        return user_service.user_add(data)
