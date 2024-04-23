@@ -2,7 +2,7 @@
 from mall.db.models.User.model import User
 import uuid
 from mall.db.engines.mysql import get_session
-
+from mall.common.constant import SETTING_LIST_DEFAILT_PAGESIZE
 
 class UserDao:
 
@@ -21,16 +21,16 @@ class UserDao:
 
     @classmethod
     def listalluser(cls,params):
-        page_num = params.get("page", 1)
-        page_size = params.get("pageSize", 10)
+        page_num = params.get("currentPage", 1)
+        page_size = params.get("pageSize", SETTING_LIST_DEFAILT_PAGESIZE)
 
         session = get_session()
         with session.begin():
             query = session.query(User)
             count = query.count()
+
             page_size = int(page_size)
             page_num = int(page_num)
-
             start = (page_num - 1) * page_size
             query = query.limit(page_size).offset(start)
             result = query.all()
