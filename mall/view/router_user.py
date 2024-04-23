@@ -10,12 +10,19 @@ from mall.service import  user_service
 LOG = logging.getLogger(__name__)
 
 app_user = Blueprint('user', __name__)
-ns_user = Namespace("crud demo", description="告警设置", path="/v1/user")
+ns_user = Namespace("crud demo", description="用户测试", path="/v1/user")
 
 
 @ns_user.route('/add', methods=['POST'])
-class DemoInstance(Resource):
+class UserAdd(Resource):
 
     def post(self):
         data = json.loads(request.data)
         return user_service.user_add(data)
+
+
+@ns_user.route('/list', methods=['GET'])
+class UserList(Resource):
+    def get(self):
+        params = request.args
+        return user_service.user_list(params)

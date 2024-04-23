@@ -10,7 +10,8 @@ LOG = logging.getLogger(__name__)
 
 
 def result_ok(data=""):
-    return {"errCode": None, "errMessage": None, "exceptionMsg": None, "flag": True, "resData": data}
+    data = {"errCode": None, "errMessage": None, "exceptionMsg": None, "flag": True, "resData": data}
+    return data
 
 def result_fail(error_code, params, error_massage=None):
     lang = request.headers.get('X-Accept-Language')
