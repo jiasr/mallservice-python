@@ -4,7 +4,7 @@ import traceback
 from flask import request
 from flask import g
 from flask import make_response
-import logging
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 

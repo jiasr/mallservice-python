@@ -1,8 +1,8 @@
 import os
 from oslo_config import cfg
-import logging
 from sqlalchemy import create_engine
 from mall.db.models.base import BASE
+from oslo_log import log as logging
 
 
 LOG = logging.getLogger(__name__)

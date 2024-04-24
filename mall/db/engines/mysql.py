@@ -3,7 +3,7 @@ from oslo_config import cfg
 
 from oslo_db.sqlalchemy import session as db_session
 from oslo_db import options
-import  logging
+from oslo_log import log as logging
 
 from sqlalchemy.ext.declarative import declarative_base
 

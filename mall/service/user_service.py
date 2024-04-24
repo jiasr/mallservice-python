@@ -1,5 +1,6 @@
 from mall.common.common import deco_catch_view_exception
 from mall.db.models.User.sql import UserDao
+from oslo_log import log as logging
 
 
 @deco_catch_view_exception("用户添加")

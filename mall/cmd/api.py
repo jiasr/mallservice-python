@@ -14,10 +14,10 @@ def load_config():
     logging.setup(CONF,"mall")
     CONF.log_opt_values(LOG, logging.INFO)
 
-
 def main():
-    LOG.info(app.url_map)
+
     load_config()
+    LOG.info(app.url_map)
     app.run(host="0.0.0.0", port=8099, threaded=True)
 
 

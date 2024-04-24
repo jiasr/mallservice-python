@@ -4,7 +4,7 @@ import json
 from flask import Blueprint
 from flask import request
 from flask_restx import Namespace, Resource, fields
-import logging
+from oslo_log import log as logging
 
 
 LOG = logging.getLogger(__name__)
