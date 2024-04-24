@@ -13,6 +13,7 @@ LOG = logging.getLogger(__name__)
 
 app = Flask(__name__)
 flask_excel.init_excel(app)
+CORS(app)
 api = Api(app, version='1.0', title='inspur cloud rest api doc', description='inspur cloud rest api doc')
 
 
