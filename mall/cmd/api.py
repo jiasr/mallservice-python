@@ -5,7 +5,7 @@ from mall.conf import CONF
 
 
 LOG = logging.getLogger(__name__)
-CONF_FILE_PATH = os.path.join('../../resource/conf', "mall.conf")
+CONF_FILE_PATH = os.path.join('../../etc/mall', "mall.conf")
 
 logging.setup(CONF,"mall")
 
