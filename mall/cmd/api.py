@@ -17,7 +17,7 @@ def load_config():
 
 def main():
     load_config()
-    app.run(host="0.0.0.0", port=CONF.api_mall_listen_port, threaded=True)
+    app.run(host=CONF.api_mall_listen, port=CONF.api_mall_listen_port, threaded=True)
 
 
 

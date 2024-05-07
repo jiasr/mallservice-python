@@ -6,7 +6,8 @@ from mall.conf import db
 
 CONF = cfg.CONF
 
-api.register_opts(CONF)
 common.register_opts(CONF)
+api.register_opts(CONF)
 core.register_opts(CONF)
 db.register_opts(CONF)
+
