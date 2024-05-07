@@ -1,13 +1,12 @@
 import os
-from oslo_config import cfg
 from oslo_log import log as logging
 from mall import  app
+from mall.conf import CONF
 
 
 LOG = logging.getLogger(__name__)
 CONF_FILE_PATH = os.path.join('../../resource/conf', "mall.conf")
-CONF = cfg.CONF
-logging.register_options(CONF)
+
 logging.setup(CONF,"mall")
 
 def load_config():
@@ -18,7 +17,7 @@ def load_config():
 
 def main():
     load_config()
-    app.run(host="0.0.0.0", port=8099, threaded=True)
+    app.run(host="0.0.0.0", port=CONF.api_mall_listen_port, threaded=True)
 
 
 
