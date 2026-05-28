@@ -36,3 +36,27 @@ class UserDao:
             result = query.all()
 
         return count, result
+
+    @classmethod
+    def add_wxuser(cls, params):
+        openid = params["openid"]
+        session_key =params["session_key"]
+        session = get_session()
+        result ={}
+        result["userid"] = ""
+        with session.begin():
+            # 先查询是否已存在
+            existing_user = session.query(User).filter_by(wx_openid=openid).first()
+            if existing_user:
+                # 更新 session_key
+                existing_user.wx_session_key = session_key
+                result["userid"] =  existing_user.id
+            else: # 创建新用户
+                instance = User(
+                    id=uuid.uuid4().hex,
+                    name="wx_"+openid,
+                    wx_openid= openid,
+                )
+                session.add(instance)
+                result["userid"]=instance.id
+        return result

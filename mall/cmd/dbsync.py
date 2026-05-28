@@ -6,7 +6,7 @@ from oslo_log import log as logging
 
 
 LOG = logging.getLogger(__name__)
-CONF_FILE_PATH = os.path.join('../../resource/conf', "mall.conf")
+CONF_FILE_PATH = os.path.join('../../etc/mall', "mall.conf")
 CONF = cfg.CONF
 
 def load_config():

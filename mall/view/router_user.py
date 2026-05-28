@@ -26,3 +26,10 @@ class UserList(Resource):
     def get(self):
         params = request.args
         return user_service.user_list(params)
+
+
+@ns_user.route('/wx_login', methods=['POST'])
+class UserList(Resource):
+    def post(self):
+        data = json.loads(request.data)
+        return user_service.wx_login(data)
