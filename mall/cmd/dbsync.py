@@ -19,11 +19,12 @@ def load_config():
 def table_sync():
     from mall.db.engines.mysql import get_engine
     from mall.db.models.base import BASE
-    from mall.db.models.User.model import User
+    from mall.db.models.User.model import User,UserAddress
     from mall.db.models.GoodsCatalog.model import GoodsCatalog
 
     tables = [
         BASE.metadata.tables["t_mall_user"],
+        BASE.metadata.tables["t_mall_user_address"],
         BASE.metadata.tables["t_mall_goodscatalog"]
     ]
     BASE.metadata.create_all(get_engine(), tables=tables, checkfirst=True)
