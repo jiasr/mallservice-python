@@ -8,7 +8,7 @@ from mall.common.constant import SETTING_LIST_DEFAILT_PAGESIZE
 class AddressDao:
 
     @classmethod
-    def user_address_add(cls):
+    def user_address_add(cls,data):
         session = get_session()
         with session.begin():
             instance = UserAddress(
