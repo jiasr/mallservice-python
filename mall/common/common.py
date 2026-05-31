@@ -11,6 +11,7 @@ LOG = logging.getLogger(__name__)
 
 def result_ok(data=""):
     data = {"errCode": None, "errMessage": None, "exceptionMsg": None, "flag": True, "resData": data}
+    LOG.info(data)
     return data
 
 def result_fail(error_code, params, error_massage=None):
@@ -53,7 +54,9 @@ def deco_catch_view_exception(func_desc="外部接口"):
                 g.lang = request.headers.get('X-Accept-Language')
                 func_name = origin_func.__name__
                 u = origin_func(*args, **kwargs)
+
                 result = make_response(json.dumps(result_ok(u)))
+
             except Fail as e:
                 LOG.error("方法:{} 的错误信息:{}".format(func_name, e))
                 result = make_response(json.dumps(result_fail(e.error_code, e.params, e.error_message)))
@@ -61,7 +64,9 @@ def deco_catch_view_exception(func_desc="外部接口"):
                 traceback.print_exc()
                 LOG.error("方法:{} 的异常信息:{}".format(func_name, e))
                 result = make_response(json.dumps(result_error()))
+
             result.headers = headers
+
             return result
 
         return wrapper

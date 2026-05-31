@@ -1,5 +1,5 @@
 from mall.common.common import deco_catch_view_exception
-from mall.db.models.User.sql import UserDao
+from mall.db.models.User.usersql import UserDao
 from oslo_log import log as logging
 from mall.common.constant import wx_app_id,wx_app_secret
 LOG = logging.getLogger(__name__)

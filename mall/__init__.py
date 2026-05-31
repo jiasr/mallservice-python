@@ -7,6 +7,7 @@ import logging
 
 from mall.view.router_demo import app_demo,ns_demo
 from mall.view.router_user import app_user,ns_user
+from mall.view.router_address import app_address,ns_address
 from mall.view.router_goodscatalog import app_goodscatalog,ns_goodscatalog
 
 LOG = logging.getLogger(__name__)
@@ -28,11 +29,13 @@ def log_req2(res):
 # 注册BP组件
 app.register_blueprint(app_demo, url_prefix="/v1/demo")
 app.register_blueprint(app_user, url_prefix="/v1/user")
+app.register_blueprint(app_address, url_prefix="/v1/address")
 app.register_blueprint(app_goodscatalog, url_prefix="/v1/goodscatalog")
 
 
 
 api.add_namespace(ns_demo)
 api.add_namespace(ns_user)
+api.add_namespace(ns_address)
 api.add_namespace(ns_goodscatalog)
 
