@@ -25,10 +25,14 @@ class UserAddress(BASE,SerializerMixin):
     create_time = Column(DateTime,default=time.localtime(time.time())) #创建时间
     update_time = Column(DateTime,default=time.localtime(time.time())) #修改时间
     userid =  Column(String(255)) #用户id
-    name = Column(String(255)) #收货人香茗
+    name = Column(String(255)) #收货人姓名
     mobile  = Column(String(20)) #收货人手机号
     province = Column(String(30)) #省
+    provincecode =  Column(String(30)) #省
     city = Column(String(30)) #市
+    citycode =  Column(String(30)) #市
     district = Column(String(30)) #区县
+    districtcode = Column(String(30)) #区县
     detail = Column(String(255)) #详细地址（街道、楼栋、门牌号
     is_defalut = Column(Integer,default=1) #1 是 0 否
+    addressTag = Column(String(30))

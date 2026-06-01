@@ -11,30 +11,13 @@ import requests
 
 @deco_catch_view_exception("地址添加")
 def address_add(params):
-    result_list = []
-    # {'userid': '33918da754964edda37da983403ebc3d',
-    # 'address': {'saasId': '88888888',
-    # 'uid': '88888888205500',
-    # 'authToken': None,
-    # 'id': '', 'addressId': '',
-    # 'phone': '15562542222',
-    # 'name': 'dadf',
-    # 'countryName': '',
-    # 'countryCode': '',
-    # 'provinceName': '北京市',
-    # 'provinceCode': '110000',
-    # 'cityName': '北京市',
-    # 'cityCode': '110100',
-    # 'districtName': '朝阳区',
-    # 'districtCode': '110105',
-    # 'detailAddress': '2132',
-    # 'isDefault': 0,
-    # 'addressTag': '',
-    # 'storeId': None}}
+    address = AddressDao.user_address_add(params)
+    return address
 
-
-    users = AddressDao.user_address_add(params)
-    return users
+@deco_catch_view_exception("地址详情")
+def address_detail(params):
+    address = AddressDao.user_address_detail(params)
+    return address.to_dict()
 
 @deco_catch_view_exception("地址列表")
 def address_list(params):

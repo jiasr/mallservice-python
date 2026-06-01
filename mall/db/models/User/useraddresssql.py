@@ -9,11 +9,44 @@ class AddressDao:
 
     @classmethod
     def user_address_add(cls,data):
+        result_list = []
+        # {'userid': '33918da754964edda37da983403ebc3d',
+        # 'address': {'saasId': '88888888',
+        # 'uid': '88888888205500',
+        # 'authToken': None,
+        # 'id': '', 'addressId': '',
+        # 'phone': '15562542222',
+        # 'name': 'dadf',
+        # 'countryName': '',
+        # 'countryCode': '',
+        # 'provinceName': '北京市',
+        # 'provinceCode': '110000',
+        # 'cityName': '北京市',
+        # 'cityCode': '110100',
+        # 'districtName': '朝阳区',
+        # 'districtCode': '110105',
+        # 'detailAddress': '2132',
+        # 'isDefault': 0,
+        # 'addressTag': '',
+        # 'storeId': None}}
+
         session = get_session()
         with session.begin():
             instance = UserAddress(
                 id=uuid.uuid4().hex,
-                name = "tttttttt",
+                userid=data.get("userid"),
+                name =data.get("address").get("name"),
+                mobile=data.get("address").get("phone"),
+                province=data.get("address").get("provinceName"),
+                provincecode = data.get("address").get("provinceCode"),
+                city=data.get("address").get("cityName"),
+                citycode=data.get("address").get("cityCode"),
+                district=data.get("address").get("districtName"),
+                districtcode=data.get("address").get("districtCode"),
+                detail=data.get("address").get("detailAddress"),
+                is_defalut=int(data.get("address").get("isDefault")),
+                addressTag=data.get("address").get("addressTag")
+
             )
             session.add(instance)
 
@@ -36,3 +69,14 @@ class AddressDao:
             result = query.all()
 
         return count, result
+
+    @classmethod
+    def user_address_detail(cls, data):
+        session = get_session()
+        with session.begin():
+            address = session.query(UserAddress).filter_by(id=data.get("id")).one_or_none()
+            if address:
+                print(f"找到地址: {address.detail}")
+            else:
+                print("地址不存在")
+        return address

@@ -17,7 +17,6 @@ ns_address = Namespace("crud demo", description="添加地址", path="/v1/addres
 @ns_address.route('/add', methods=['POST'])
 class AddressAdd(Resource):
 
-
     def post(self):
         data = json.loads(request.data)
         LOG.info(data)
@@ -31,3 +30,13 @@ class AddressList(Resource):
         params = request.args
         LOG.info(params)
         return address_service.address_list(params)
+
+
+
+@ns_address.route('/detail', methods=['GET'])
+class AddressList(Resource):
+
+    def get(self):
+        params = request.args
+        LOG.info(params)
+        return address_service.address_detail(params)

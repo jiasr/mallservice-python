@@ -39,30 +39,30 @@ def init_area():
         session = get_session()
         result = session.execute("SELECT * FROM regions limit 1")
         print(result)
-
-        sql = "insert into regions(id,code, name, parent_code, level) VALUES('{}', '{}', '{}','{}',{}) "
-
-
-        for provinces in data:
-            plabel = provinces.get("label")
-            pvalue = provinces.get("value")
-            citys=provinces.get("children")
-            psql=sql.format(uuid.uuid4().hex,pvalue,plabel,'',1)
-            print(psql)
-            session.execute(psql)
-            for city in citys:
-                clabel = city.get("label")
-                cvalue = city.get("value")
-                districts = city.get("children")
-                csql =sql.format(uuid.uuid4().hex, cvalue, clabel, pvalue, 2)
-                print(csql)
-                session.execute(csql)
-                for district in districts:
-                    dlabel = district.get("label")
-                    dvalue = district.get("value")
-                    dsql = sql.format(uuid.uuid4().hex,dvalue , dlabel, cvalue, 3)
-                    print(dsql)
-                    session.execute(dsql)
+        if result.rowcount == 0:
+            sql = "insert into regions(id,code, name, parent_code, level) VALUES('{}', '{}', '{}','{}',{}) "
+            for provinces in data:
+                plabel = provinces.get("label")
+                pvalue = provinces.get("value")
+                citys=provinces.get("children")
+                psql=sql.format(uuid.uuid4().hex,pvalue,plabel,'',1)
+                print(psql)
+                session.execute(psql)
+                for city in citys:
+                    clabel = city.get("label")
+                    cvalue = city.get("value")
+                    districts = city.get("children")
+                    csql =sql.format(uuid.uuid4().hex, cvalue, clabel, pvalue, 2)
+                    print(csql)
+                    session.execute(csql)
+                    for district in districts:
+                        dlabel = district.get("label")
+                        dvalue = district.get("value")
+                        dsql = sql.format(uuid.uuid4().hex,dvalue , dlabel, cvalue, 3)
+                        print(dsql)
+                        session.execute(dsql)
+        else:
+            LOG.info("area has been inited")
 
 
 
