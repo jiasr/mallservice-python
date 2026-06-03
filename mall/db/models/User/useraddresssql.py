@@ -104,3 +104,14 @@ class AddressDao:
             else:
                 print("地址不存在")
         return address
+
+    @classmethod
+    def user_address_delete(cls, data):
+        if data.get("id") is not None:
+            session = get_session()
+            with session.begin():
+                session.query(UserAddress).filter(UserAddress.id == data.get("id").get("id")).filter(UserAddress.userid==data.get("userid")).delete()
+        result={}
+        result["status"]="ok"
+        return result
+

@@ -26,3 +26,8 @@ def address_list(params):
     result["total"] =count
     result["data"] =[row.to_dict() for row in address]
     return result
+
+@deco_catch_view_exception("删除地址")
+def address_delete(params):
+    result = AddressDao.user_address_delete(params)
+    return result

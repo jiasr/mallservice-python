@@ -40,3 +40,11 @@ class AddressList(Resource):
         params = request.args
         LOG.info(params)
         return address_service.address_detail(params)
+
+@ns_address.route('/delete', methods=['POST'])
+class DelAddress(Resource):
+
+    def post(self):
+        params = json.loads(request.data)
+        LOG.info(params)
+        return address_service.address_delete(params)
