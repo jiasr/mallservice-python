@@ -23,13 +23,15 @@ def table_sync():
     from mall.db.models.base import BASE
     from mall.db.models.User.model import User,UserAddress
     from mall.db.models.GoodsCatalog.model import GoodsCatalog
-    from mall.db.models.Goods.model import GoodsSpu
+    from mall.db.models.Goods.model import GoodsSpu, GoodsSku,GoodsSpec
 
     tables = [
         BASE.metadata.tables["t_mall_user"],
         BASE.metadata.tables["t_mall_user_address"],
         BASE.metadata.tables["t_mall_goodscatalog"],
         BASE.metadata.tables["t_mall_goods_spu"],
+        BASE.metadata.tables["t_mall_goods_sku"],
+        BASE.metadata.tables["t_mall_goods_spec"],
     ]
     BASE.metadata.create_all(get_engine(), tables=tables, checkfirst=True)
 
@@ -65,10 +67,6 @@ def init_area():
                         session.execute(dsql)
         else:
             LOG.info("area has been inited")
-
-
-
-
 
 
 

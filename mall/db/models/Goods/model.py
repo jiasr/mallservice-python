@@ -15,7 +15,7 @@ class GoodsSpu(BASE, SerializerMixin):
     """商品SPU表"""
     __tablename__ = 't_mall_goods_spu'
 
-    id = Column(String(255), primary_key=True,default=uuid.UUID) # id
+    id = Column(String(255), primary_key=True) # id
     spu_id = Column(String(64), unique=True, nullable=False, index=True, comment='SPU编码')
     title = Column(String(500), nullable=False, comment='商品标题')
     etitle = Column(String(500), default='', comment='英文标题')
@@ -23,7 +23,7 @@ class GoodsSpu(BASE, SerializerMixin):
     images = Column(Text, comment='商品图片列表(JSON数组)')
     video = Column(String(500), comment='视频地址')
     desc = Column(Text, comment='商品详情图片列表(JSON数组)')
-    category_id = Column(Integer, comment='分类ID')
+    category_id = Column(String(255), comment='分类ID')
     min_sale_price = Column(Integer, default=0, comment='最低售价(分)')
     max_sale_price = Column(Integer, default=0, comment='最高售价(分)')
     min_line_price = Column(Integer, default=0, comment='最低划线价(分)')
@@ -44,9 +44,9 @@ class GoodsSku(BASE, SerializerMixin):
     """商品SKU表"""
     __tablename__ = 't_mall_goods_sku'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id =Column(String(255), primary_key=True) # id
     sku_id = Column(String(64), unique=True, nullable=False, index=True, comment='SKU编码')
-    spu_id = Column(Integer, ForeignKey('t_mall_goods_spu.id'), comment='关联SPU')
+    spu_id = Column(String(255), ForeignKey('t_mall_goods_spu.id'), comment='关联SPU')
     sku_image = Column(String(500), comment='SKU图片')
     price = Column(Integer, default=0, comment='销售价格(分)')
     line_price = Column(Integer, default=0, comment='划线价格(分)')
@@ -57,3 +57,15 @@ class GoodsSku(BASE, SerializerMixin):
     weight_unit = Column(String(10), default='KG', comment='重量单位')
     create_time = Column(DateTime, default=datetime.now)
     update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class GoodsSpec(BASE, SerializerMixin):
+    """商品规格定义表"""
+    __tablename__ = 't_mall_goods_spec'
+
+    id = Column(String(255), primary_key=True) # id
+    spec_id = Column(String(64), nullable=False, index=True, comment='规格ID')
+    spu_id = Column(String(255), ForeignKey('t_mall_goods_spu.id'), comment='关联SPU')
+    title = Column(String(100), nullable=False, comment='规格名称(如颜色、尺码)')
+    spec_values = Column(Text, comment='规格值列表(JSON数组)')
+    create_time = Column(DateTime, default=datetime.now)
