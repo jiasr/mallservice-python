@@ -9,6 +9,12 @@ CONF_FILE_PATH = os.path.join('../../etc/mall', "mall.conf")
 
 logging.setup(CONF,"mall")
 
+
+from flask.json import JSONEncoder
+from datetime import datetime, date
+
+
+
 def load_config():
     print(CONF_FILE_PATH)
     CONF(['--config-file', CONF_FILE_PATH], project="mall")
@@ -18,6 +24,7 @@ def load_config():
 def main():
     load_config()
     app.run(host=CONF.api_mall_listen, port=CONF.api_mall_listen_port, threaded=True)
+    # 在 Flask app 中设置
 
 
 

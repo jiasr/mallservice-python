@@ -5,6 +5,8 @@ from flask import request
 from flask import g
 from flask import make_response
 from oslo_log import log as logging
+from flask import jsonify
+
 
 LOG = logging.getLogger(__name__)
 
@@ -56,6 +58,7 @@ def deco_catch_view_exception(func_desc="外部接口"):
                 u = origin_func(*args, **kwargs)
 
                 result = make_response(json.dumps(result_ok(u)))
+                #jsonify(result_ok(u))
 
             except Fail as e:
                 LOG.error("方法:{} 的错误信息:{}".format(func_name, e))
@@ -104,6 +107,8 @@ def build_tree(flat_list, id_field="id", parent_field="parentId", children_field
             "name": _val(item, "name"),
             "level": _val(item, "level"),
             "parentId": str(pid),
+            "createtime":str(item.create_time),
+            "sort":_val(item, "sort_order"),
             children_field: [],
         }
 
