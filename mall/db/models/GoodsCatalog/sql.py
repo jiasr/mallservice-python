@@ -3,6 +3,11 @@ from mall.db.models.GoodsCatalog.model import GoodsCatalog
 import uuid
 from mall.db.engines.mysql import get_session
 from mall.common.constant import SETTING_LIST_DEFAILT_PAGESIZE
+from oslo_log import log as logging
+from mall.common.common import build_tree
+
+LOG = logging.getLogger(__name__)
+
 
 class GoodsCatalogDao:
 
@@ -36,3 +41,17 @@ class GoodsCatalogDao:
             result = query.all()
 
         return count, result
+
+    @classmethod
+    def goods_catalog_tree(cls, params):
+        page_num = params.get("currentPage", 1)
+        page_size = params.get("pageSize", SETTING_LIST_DEFAILT_PAGESIZE)
+
+        session = get_session()
+        with session.begin():
+            all_categories = session.query(GoodsCatalog).order_by(
+                GoodsCatalog.sort_order.asc()
+            ).all()
+
+            return build_tree(all_categories, id_field="id", parent_field="parentid")
+

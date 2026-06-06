@@ -72,3 +72,58 @@ def deco_catch_view_exception(func_desc="外部接口"):
         return wrapper
 
     return catch_exception
+
+
+
+def build_tree(flat_list, id_field="id", parent_field="parentId", children_field="children", root_parent_val=None):
+    """
+    通用多级级联树构建函数，支持任意深度。
+
+    参数:
+        flat_list:      扁平的节点列表（dict 列表或 ORM 对象列表）
+        id_field:       节点 ID 的字段名，默认 "id"
+        parent_field:   父节点 ID 的字段名，默认 "parentId"
+        children_field: 子节点列表的字段名，默认 "children"
+        root_parent_val: 根节点的 parent 值（判断标准），默认 None 表示 "0" 或 None 或 0 都算根
+
+    返回:
+        roots: 树根节点列表，每个节点都包含 children_field 指向其子节点列表
+    """
+    def _val(obj, field):
+        if isinstance(obj, dict):
+            return obj.get(field)
+        return getattr(obj, field, None)
+
+    # 第一步：构建节点字典，统一转为 dict 格式
+    node_dict = {}
+    for item in flat_list:
+        node_id = _val(item, id_field)
+        pid = _val(item, parent_field) or "0"
+        node_dict[str(node_id)] = {
+            "id": _val(item, id_field),
+            "name": _val(item, "name"),
+            "level": _val(item, "level"),
+            "parentId": str(pid),
+            children_field: [],
+        }
+
+    # 第二步：组装树
+    roots = []
+    for item in flat_list:
+        node_id = str(_val(item, id_field))
+        pid = str(_val(item, parent_field) or "0")
+
+        if root_parent_val is not None:
+            is_root = (pid == str(root_parent_val))
+        else:
+            is_root = (pid == "0" or pid not in node_dict)
+
+        if is_root:
+            roots.append(node_dict[node_id])
+        else:
+            if pid in node_dict:
+                node_dict[pid][children_field].append(node_dict[node_id])
+            else:
+                roots.append(node_dict[node_id])
+
+    return roots

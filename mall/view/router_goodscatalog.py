@@ -25,3 +25,10 @@ class GoodsCatalogList(Resource):
     def get(self):
         params = request.args
         return goodscatalog_service.goodscatalog_list(params)
+
+
+@ns_goodscatalog.route('/tree', methods=['GET'])
+class GoodsCatalogList(Resource):
+    def get(self):
+        params = request.args
+        return goodscatalog_service.goodscatalog_tree(params)

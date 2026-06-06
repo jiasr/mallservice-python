@@ -6,6 +6,8 @@ from sqlalchemy import String, Text, Float
 from sqlalchemy_serializer import SerializerMixin
 import uuid
 import time
+from datetime import datetime
+
 
 class GoodsCatalog(BASE,SerializerMixin):
     __tablename__ = 't_mall_goodscatalog'
@@ -14,3 +16,7 @@ class GoodsCatalog(BASE,SerializerMixin):
     create_time = Column(DateTime,default=time.localtime(time.time()) )
     name = Column(String(255))
     parentid = Column(String(255),default="0")
+    level = Column(Integer, default=1, comment='层级：1一级 2二级 3三级')
+    thumbnail = Column(String(500), comment='分类缩略图')
+    sort_order = Column(Integer, default=0, comment='排序')
+    update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)
