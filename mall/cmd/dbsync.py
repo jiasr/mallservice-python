@@ -28,7 +28,7 @@ def table_sync():
     tables = [
         BASE.metadata.tables["t_mall_user"],
         BASE.metadata.tables["t_mall_user_address"],
-        BASE.metadata.tables["t_mall_goodscatalog"],
+        BASE.metadata.tables["t_mall_goods_catalog"],
         BASE.metadata.tables["t_mall_goods_spu"],
         BASE.metadata.tables["t_mall_goods_sku"],
         BASE.metadata.tables["t_mall_goods_spec"],

@@ -10,7 +10,7 @@ from datetime import datetime
 
 
 class GoodsCatalog(BASE,DbBase):
-    __tablename__ = 't_mall_goodscatalog'
+    __tablename__ = 't_mall_goods_catalog'
 
     id = Column(String(255), primary_key=True)
     create_time = Column(DateTime,default=time.localtime(time.time()) )
