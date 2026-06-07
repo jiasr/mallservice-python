@@ -60,7 +60,7 @@ class GoodsSpuDao:
 
             # 分类筛选
             if category_id:
-                query = query.filter(GoodsSpu.category_id == int(category_id))
+                query = query.filter(GoodsSpu.category_id == category_id)
 
             # 价格区间筛选
             if min_price is not None:
@@ -96,13 +96,10 @@ class GoodsSpuDao:
                 })
 
             return {
-                "saasId": None,
-                "storeId": None,
                 "pageNum": page_num,
                 "pageSize": page_size,
                 "totalCount": total_count,
                 "spuList": spu_list,
-                "algId": 0,
             }
 
     @classmethod
@@ -213,31 +210,23 @@ class GoodsSpuDao:
     @classmethod
     def create_spu(cls, data):
         """Admin 端新增商品（SPU + 规格 + SKU）"""
-        import uuid as _uuid
         session = get_session()
         with session.begin():
-            spu_id = str(_uuid.uuid4().hex[:12])
-            title = data.get("title", "").strip()
-            if not title:
-                return None, "商品标题不能为空"
 
-            category_id = data.get("categoryId", "") or ""
-            primary_image = data.get("primaryImage", "")
             images = json.dumps(data.get("images", [])) if data.get("images") else "[]"
-            desc = json.dumps(data.get("desc", [])) if data.get("desc") else "[]"
+            desc = data.get("detail", "")
             tags = json.dumps(data.get("tags", [])) if data.get("tags") else "[]"
-            etitle = data.get("etitle", "")
-            store_id = data.get("storeId", "1000")
+            store_id = data.get("storeId", "")
 
             spu = GoodsSpu(
                 id = uuid.uuid4().hex,
-                spu_id=spu_id,
-                title=title,
-                etitle=etitle,
-                primary_image=primary_image,
-                images=images,
-                desc=desc,
-                category_id=category_id if category_id else None,
+                title=data.get("title", "").strip(),
+                etitle= data.get("etitle", ""),
+                primary_image=data.get("primaryImage", ""),#主图
+                images=images,#轮播
+                desc=desc,#详情图
+
+                category_id= data.get("categoryId", ""),
                 min_sale_price=0,
                 max_sale_price=0,
                 min_line_price=0,
@@ -261,10 +250,9 @@ class GoodsSpuDao:
             specs_data = data.get("specs", [])
             spec_id_map = {}
             for s in specs_data:
-                spec_id = s.get("specId") or str(_uuid.uuid4().hex[:10])
+                spec_id = s.get("specId")
                 spec = GoodsSpec(
                     id = uuid.uuid4().hex,
-                    spec_id=spec_id,
                     spu_id=spu.id,
                     title=s.get("title", ""),
                     spec_values=json.dumps(s.get("values", [])),
@@ -275,7 +263,7 @@ class GoodsSpuDao:
             # 保存 SKU
             skus_data = data.get("skus", [])
             for sk in skus_data:
-                sku_id = sk.get("skuId") or str(_uuid.uuid4().hex[:12])
+                sku_id = sk.get("skuId")
                 price = int(sk.get("price", 0))
                 line_price = int(sk.get("linePrice", 0))
                 stock = int(sk.get("stockQuantity", 0))
@@ -293,7 +281,6 @@ class GoodsSpuDao:
 
                 sku = GoodsSku(
                     id=uuid.uuid4().hex,
-                    sku_id=sku_id,
                     spu_id=spu.id,
                     sku_image=sk.get("skuImage", ""),
                     price=price,
@@ -311,4 +298,4 @@ class GoodsSpuDao:
             spu.stock_quantity = total_stock
             session.flush()
 
-            return {"spuId": spu_id, "title": spu.title}, None
+            return { "title": spu.title}, None

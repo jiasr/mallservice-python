@@ -4,24 +4,26 @@ from mall.db.models.Goods.sql import (
     GoodsSpuDao
 )
 from oslo_log import log as logging
-
+from mall.common.common import Fail
 LOG = logging.getLogger(__name__)
 
 
-@deco_catch_view_exception("获取商品详情")
-def goods_detail(spu_id):
-    """获取单个商品详情"""
-    result = GoodsSpuDao.get_by_spu_id(spu_id)
-    if not result:
-        from mall.common.common import Fail
-        raise Fail("GOODS_NOT_FOUND", {"spuId": spu_id}, "商品不存在")
-    return result
 
 
 @deco_catch_view_exception("搜索商品列表")
 def goods_list(params):
     """搜索/筛选商品列表"""
     return GoodsSpuDao.search_list(params)
+
+@deco_catch_view_exception("获取商品详情")
+def goods_detail(spu_id):
+    """获取单个商品详情"""
+    result = GoodsSpuDao.get_by_spu_id(spu_id)
+    if not result:
+        raise Fail("GOODS_NOT_FOUND", {"spuId": spu_id}, "商品不存在")
+    return result
+
+
 
 
 @deco_catch_view_exception("获取简单商品列表")
@@ -38,6 +40,5 @@ def admin_goods_add(data):
     """新增商品（SPU + 规格 + SKU）"""
     result, error = GoodsSpuDao.create_spu(data)
     if error:
-        from mall.common.common import Fail
         raise Fail("ADD_GOODS_FAIL", None, error)
     return result

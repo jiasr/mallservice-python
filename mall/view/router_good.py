@@ -13,16 +13,9 @@ LOG = logging.getLogger(__name__)
 app_goods = Blueprint('goods', __name__)
 ns_goods = Namespace("goods", description="商品相关接口", path="/v1/goods")
 
-# ==================== 商品详情 ====================
-@ns_goods.route('/detail', methods=['GET'])
-class GoodsDetail(Resource):
-    """获取商品详情"""
-    def get(self):
-        spu_id = request.args.get('spuId', '0')
-        return goods_service.goods_detail(spu_id)
 
 
-# ==================== 商品列表（搜索+筛选） ====================
+# ==================== 商品列表====================
 @ns_goods.route('/list', methods=['GET'])
 class GoodsList(Resource):
     """搜索/筛选商品列表
@@ -31,6 +24,15 @@ class GoodsList(Resource):
     def get(self):
         params = request.args.to_dict()
         return goods_service.goods_list(params)
+
+
+# ==================== 商品详情 ====================
+@ns_goods.route('/detail', methods=['GET'])
+class GoodsDetail(Resource):
+    """获取商品详情"""
+    def get(self):
+        spu_id = request.args.get('spuId', '0')
+        return goods_service.goods_detail(spu_id)
 
 
 # ==================== 简单商品列表（首页） ====================
