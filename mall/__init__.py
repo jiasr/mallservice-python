@@ -12,6 +12,7 @@ from mall.view.router_user import app_user,ns_user
 from mall.view.router_address import app_address,ns_address
 from mall.view.router_goodscatalog import app_goodscatalog,ns_goodscatalog
 from mall.view.router_good import app_goods,ns_goods
+from mall.view.router_admin import app_admin,ns_admin
 
 
 LOG = logging.getLogger(__name__)
@@ -64,12 +65,14 @@ def log_req2(res):
 app.register_blueprint(app_user, url_prefix="/v1/user")
 app.register_blueprint(app_address, url_prefix="/v1/address")
 app.register_blueprint(app_goodscatalog, url_prefix="/v1/goodscatalog")
-app.register_blueprint(app_goodscatalog, url_prefix="/v1/goods")
-
+app.register_blueprint(app_goods, url_prefix="/v1/goods")
+app.register_blueprint(app_admin, url_prefix="/v1/admin")
 
 
 api.add_namespace(ns_user)
 api.add_namespace(ns_address)
 api.add_namespace(ns_goodscatalog)
 api.add_namespace(ns_goods)
+api.add_namespace(ns_admin)
+
 
