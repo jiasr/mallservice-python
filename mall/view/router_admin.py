@@ -43,6 +43,11 @@ class AdminLogin(Resource):
         "frontpath": "/goods/list",
         "icon": "Goods",
         "child": [
+            {
+                "name": "分类管理",
+                "frontpath": "/category/list",
+                "icon": "Menu"
+            },
           {
             "name": "商品列表",
             "frontpath": "/goods/list",
@@ -54,11 +59,6 @@ class AdminLogin(Resource):
             "icon": "Plus"
           }
         ]
-      },
-      {
-        "name": "分类管理",
-        "frontpath": "/category/list",
-        "icon": "Menu"
       }
     ],
     "ruleNames": ["user:list", "goods:add"]
