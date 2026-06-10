@@ -24,6 +24,7 @@ def table_sync():
     from mall.db.models.User.model import User,UserAddress
     from mall.db.models.GoodsCatalog.model import GoodsCatalog
     from mall.db.models.Goods.model import GoodsSpu, GoodsSku,GoodsSpec
+    from mall.db.models.Admin.model import AdminUser, AdminRole, AdminMenu, AdminRoleMenu
 
     tables = [
         BASE.metadata.tables["t_mall_user"],
@@ -32,6 +33,10 @@ def table_sync():
         BASE.metadata.tables["t_mall_goods_spu"],
         BASE.metadata.tables["t_mall_goods_sku"],
         BASE.metadata.tables["t_mall_goods_spec"],
+        BASE.metadata.tables["t_mall_admin_user"],
+        BASE.metadata.tables["t_mall_admin_role"],
+        BASE.metadata.tables["t_mall_admin_menu"],
+        BASE.metadata.tables["t_mall_admin_role_menu"],
     ]
     BASE.metadata.create_all(get_engine(), tables=tables, checkfirst=True)
 
@@ -70,10 +75,17 @@ def init_area():
 
 
 
+def init_admin_data():
+    """初始化 Admin 默认数据（菜单、角色、管理员账号）"""
+    from mall.db.models.Admin.adminsql import AdminUserDao
+    AdminUserDao.init_all_default_data()
+
+
 def main():
     load_config()
     table_sync()
     init_area()
+    init_admin_data()
 
 
 

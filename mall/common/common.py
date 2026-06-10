@@ -1,5 +1,6 @@
 import json
 import traceback
+from functools import wraps
 
 from flask import request
 from flask import g
@@ -7,6 +8,7 @@ from flask import make_response
 from oslo_log import log as logging
 from flask import jsonify
 
+from mall.common.jwt_utils import verify_token
 
 LOG = logging.getLogger(__name__)
 
@@ -132,3 +134,26 @@ def build_tree(flat_list, id_field="id", parent_field="parentId", children_field
                 roots.append(node_dict[node_id])
 
     return roots
+
+
+def admin_required(func):
+    """管理员鉴权装饰器：从请求头提取 token 并验证，注入 request.admin_id"""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        token = request.headers.get("token") or request.headers.get("Authorization")
+        if token and token.startswith("Bearer "):
+            token = token[7:]
+
+        if not token:
+            return {"flag": False, "errCode": 401, "errMessage": "未登录", "resData": None}
+
+        payload = verify_token(token)
+        if payload is None:
+            return {"flag": False, "errCode": 401, "errMessage": "登录已过期，请重新登录", "resData": None}
+
+        request.admin_id = payload.get("admin_id")
+        request.admin_username = payload.get("username")
+        return func(*args, **kwargs)
+
+    return wrapper
