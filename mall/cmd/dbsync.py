@@ -25,6 +25,7 @@ def table_sync():
     from mall.db.models.GoodsCatalog.model import GoodsCatalog
     from mall.db.models.Goods.model import GoodsSpu, GoodsSku,GoodsSpec
     from mall.db.models.Admin.model import AdminUser, AdminRole, AdminMenu, AdminRoleMenu
+    from mall.db.models.SystemConfig.model import SystemConfig
 
     tables = [
         BASE.metadata.tables["t_mall_user"],
@@ -37,6 +38,7 @@ def table_sync():
         BASE.metadata.tables["t_mall_admin_role"],
         BASE.metadata.tables["t_mall_admin_menu"],
         BASE.metadata.tables["t_mall_admin_role_menu"],
+        BASE.metadata.tables["t_mall_system_config"],
     ]
     BASE.metadata.create_all(get_engine(), tables=tables, checkfirst=True)
 

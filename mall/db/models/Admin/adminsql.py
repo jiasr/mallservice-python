@@ -217,6 +217,7 @@ class AdminUserDao:
                 # 系统设置子菜单
                 (22, "基本设置", "/setting/base", "Tools", 8, 1, ""),
                 (23, "角色与权限", "/setting/role", "Key", 8, 2, "admin:manage"),
+                (24, "MinIO 配置", "/setting/minio", "Folder", 8, 3, ""),
             ]
 
             for (mid, name, frontpath, icon, parent_id, sort_order, permission) in default_menus:
@@ -295,6 +296,52 @@ class AdminUserDao:
             cls.create_default_role()
             cls.create_default_role_menus()
             cls.create_default_admin()
+            cls._init_system_config()
             LOG.info("Admin 默认数据初始化完成")
         except Exception as e:
             LOG.error("Admin 默认数据初始化失败: {}".format(e))
+
+    @classmethod
+    def _init_system_config(cls):
+        """初始化系统配置表及默认配置"""
+        from mall.db.models.SystemConfig.model import SystemConfig
+
+        # 检查 SystemConfig 表是否已存在数据
+        if not cls._table_is_empty(SystemConfig):
+            LOG.info("SystemConfig 表已有数据，跳过初始化")
+            return
+
+        session = get_session()
+        with session.begin():
+            default_configs = [
+                # 基础设置
+                ("site_name", "我的商城", "商城名称", "general"),
+                ("logo", "", "商城 Logo URL", "general"),
+                ("service_phone", "400-123-4567", "客服电话", "general"),
+                ("service_email", "service@example.com", "客服邮箱", "general"),
+                # 注册与访问
+                ("allow_register", "true", "是否允许注册", "access"),
+                ("register_need_audit", "false", "注册是否需要审核", "access"),
+                ("enable_distribution", "true", "是否启用分销", "access"),
+                # MinIO 配置
+                ("minio_endpoint", "127.0.0.1:9000", "MinIO API 地址", "minio"),
+                ("minio_access_key", "minioadmin", "MinIO Access Key", "minio"),
+                ("minio_secret_key", "minioadmin", "MinIO Secret Key", "minio"),
+                ("minio_bucket_name", "mall-images", "MinIO Bucket 名称", "minio"),
+                ("minio_secure", "false", "是否使用 HTTPS", "minio"),
+                ("minio_public_endpoint", "http://127.0.0.1:9000", "MinIO 公网访问地址（用于前端展示）", "minio"),
+                # 上传配置
+                ("upload_max_size", "10", "上传文件最大大小（MB）", "upload"),
+                ("upload_allowed_types", "jpg,jpeg,png,gif,webp,bmp", "允许上传的文件类型", "upload"),
+            ]
+
+            for key, value, description, group in default_configs:
+                config = SystemConfig(
+                    config_key=key,
+                    config_value=value,
+                    description=description,
+                    config_group=group,
+                )
+                session.add(config)
+
+            LOG.info("已初始化 {} 条系统默认配置".format(len(default_configs)))
