@@ -210,6 +210,36 @@ def get_public_url(object_name):
     return "https://{}.s3.{}.amazonaws.com/{}".format(bucket, region, object_name)
 
 
+def get_relative_url(object_name):
+    """获取对象相对路径（不含域名，用于存储到数据库）
+
+    Returns:
+        str: 如 /mall-images1/images/product/202606/xxx.jpg
+    """
+    _, config = get_client()
+    bucket = config.get('bucket_name', '')
+    return "/{}/{}".format(bucket, object_name)
+
+
+def get_image_display_url(path):
+    """将相对路径转为完整公网 URL（用于 API 返回给前端展示）
+
+    如果 path 已经是完整 URL 则原样返回。
+    """
+    if not path:
+        return path
+    if path.startswith('http://') or path.startswith('https://'):
+        return path
+
+    _, config = get_client()
+    public_ep = config.get('public_endpoint', '').strip().rstrip('/')
+    if not public_ep:
+        public_ep = config.get('endpoint', '').strip().rstrip('/')
+    if not public_ep.startswith('http'):
+        public_ep = 'http://' + public_ep
+    return "{}{}".format(public_ep, path)
+
+
 def get_presigned_download_url(object_name, expires=3600):
     """生成预签名下载 URL（带签名的 GET URL）
 

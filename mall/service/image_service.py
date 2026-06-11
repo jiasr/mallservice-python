@@ -101,7 +101,7 @@ def upload_file(scene, file_data, filename):
         filename: 原始文件名
 
     Returns:
-        dict: {"object_name": str, "public_url": str}
+        dict: {"object_name": str, "public_url": str}  public_url 为相对路径
     """
     prefix = SCENE_PREFIX_MAP.get(scene, "images/other")
     obj_name = generate_object_name(prefix, filename)
@@ -117,10 +117,12 @@ def upload_file(scene, file_data, filename):
         'bmp': 'image/bmp',
     }.get(ext, 'application/octet-stream')
 
-    public_url = storage.upload_file(obj_name, file_data, content_type)
+    storage.upload_file(obj_name, file_data, content_type)
+    # 返回相对 URL（存储到数据库不包含域名）
+    relative_url = storage.get_relative_url(obj_name)
     return {
         "object_name": obj_name,
-        "public_url": public_url,
+        "public_url": relative_url,
     }
 
 

@@ -18,6 +18,12 @@ LOG = logging.getLogger(__name__)
 class GoodsSpuDao:
     """商品SPU数据访问"""
 
+    @staticmethod
+    def _img_url(path):
+        """将相对路径转为完整公网 URL"""
+        from mall.common.storage.base import get_image_display_url
+        return get_image_display_url(path)
+
     @classmethod
     def get_by_spu_id(cls, spu_id):
         """根据spuId获取商品详情"""
@@ -37,8 +43,8 @@ class GoodsSpuDao:
         page_num = int(params.get("pageNum", 1))
         page_size = int(params.get("pageSize", SETTING_LIST_DEFAILT_PAGESIZE))
         keyword = params.get("keyword", "")
-        sort_type = int(params.get("sort", 0))  # 0综合 1价格
-        sort_direction = params.get("sortType", "0")  # 0升序 1降序
+        sort_type = int(params.get("sort", 0))
+        sort_direction = params.get("sortType", "0")
         min_price = params.get("minPrice")
         max_price = params.get("maxPrice")
         category_id = params.get("categoryId")
@@ -49,11 +55,9 @@ class GoodsSpuDao:
                 GoodsSpu.is_available == 1,
             )
 
-            # 上架状态筛选（不传则查全部）
             if status is not None and status != '':
                 query = query.filter(GoodsSpu.is_put_on_sale == int(status))
 
-            # 关键词搜索
             if keyword:
                 query = query.filter(
                     or_(
@@ -62,27 +66,23 @@ class GoodsSpuDao:
                     )
                 )
 
-            # 分类筛选
             if category_id:
                 query = query.filter(GoodsSpu.category_id == category_id)
 
-            # 价格区间筛选
             if min_price is not None:
                 query = query.filter(GoodsSpu.min_sale_price >= int(min_price))
             if max_price is not None and max_price != 'undefined':
                 query = query.filter(GoodsSpu.max_sale_price <= int(max_price))
 
-            # 排序
-            if sort_type == 1:  # 价格排序
-                if sort_direction == '0':  # 升序
+            if sort_type == 1:
+                if sort_direction == '0':
                     query = query.order_by(GoodsSpu.min_sale_price.asc())
-                else:  # 降序
+                else:
                     query = query.order_by(GoodsSpu.min_sale_price.desc())
-            else:  # 综合排序（默认按创建时间倒序）
+            else:
                 query = query.order_by(GoodsSpu.create_time.desc())
 
             total_count = query.count()
-
             start = (page_num - 1) * page_size
             spus = query.limit(page_size).offset(start).all()
 
@@ -91,7 +91,7 @@ class GoodsSpuDao:
                 tags = json.loads(spu.tags) if spu.tags else []
                 spu_list.append({
                     "spuId": spu.spu_id,
-                    "thumb": spu.primary_image,
+                    "thumb": cls._img_url(spu.primary_image),
                     "title": spu.title,
                     "price": spu.min_sale_price,
                     "originPrice": spu.max_line_price,
@@ -122,7 +122,7 @@ class GoodsSpuDao:
                 tags = json.loads(spu.tags) if spu.tags else []
                 result.append({
                     "spuId": spu.spu_id,
-                    "thumb": spu.primary_image,
+                    "thumb": cls._img_url(spu.primary_image),
                     "title": spu.title,
                     "price": spu.min_sale_price,
                     "originPrice": spu.max_line_price,
@@ -133,7 +133,6 @@ class GoodsSpuDao:
     @classmethod
     def _format_spu_detail(cls, session, spu):
         """格式化SPU详情数据，匹配前端数据结构"""
-        # 处理规格
         spec_list = []
         for spec in spu.specs.all():
             spec_values = json.loads(spec.spec_values) if spec.spec_values else []
@@ -143,13 +142,12 @@ class GoodsSpuDao:
                 "specValueList": spec_values,
             })
 
-        # 处理SKU
         sku_list = []
         for sku in spu.skus.all():
             spec_info = json.loads(sku.spec_info) if sku.spec_info else []
             sku_list.append({
                 "skuId": sku.sku_id,
-                "skuImage": sku.sku_image,
+                "skuImage": cls._img_url(sku.sku_image),
                 "specInfo": spec_info,
                 "priceInfo": [
                     {"priceType": 1, "price": str(sku.price), "priceTypeName": "销售价格"},
@@ -165,7 +163,6 @@ class GoodsSpuDao:
                 "profitPrice": None,
             })
 
-        # 处理标签
         tags = json.loads(spu.tags) if spu.tags else []
         spu_tag_list = []
         for tag in tags:
@@ -174,12 +171,13 @@ class GoodsSpuDao:
             else:
                 spu_tag_list.append({"id": None, "title": tag, "image": None})
 
-        # 处理限购信息
         limit_info = json.loads(spu.limit_info) if spu.limit_info else None
 
-        # 处理图片列表
-        images = json.loads(spu.images) if spu.images else []
-        desc_images = json.loads(spu.desc) if spu.desc else []
+        images_raw = json.loads(spu.images) if spu.images else []
+        desc_raw = json.loads(spu.desc) if spu.desc else []
+
+        images = [cls._img_url(u) for u in images_raw]
+        desc_images = [cls._img_url(u) for u in desc_raw]
 
         return {
             "saasId": "88888888",
