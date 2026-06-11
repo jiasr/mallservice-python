@@ -297,6 +297,7 @@ class AdminUserDao:
             cls.create_default_role_menus()
             cls.create_default_admin()
             cls._init_system_config()
+            cls._init_storage_config()
             LOG.info("Admin 默认数据初始化完成")
         except Exception as e:
             LOG.error("Admin 默认数据初始化失败: {}".format(e))
@@ -306,7 +307,6 @@ class AdminUserDao:
         """初始化系统配置表及默认配置"""
         from mall.db.models.SystemConfig.model import SystemConfig
 
-        # 检查 SystemConfig 表是否已存在数据
         if not cls._table_is_empty(SystemConfig):
             LOG.info("SystemConfig 表已有数据，跳过初始化")
             return
@@ -323,16 +323,6 @@ class AdminUserDao:
                 ("allow_register", "true", "是否允许注册", "access"),
                 ("register_need_audit", "false", "注册是否需要审核", "access"),
                 ("enable_distribution", "true", "是否启用分销", "access"),
-                # 对象存储配置（S3 兼容）
-                ("objectsto_endpoint", "http://127.0.0.1:9000", "S3 端点地址（如 http://127.0.0.1:9000）", "storage"),
-                ("objectsto_access_key", "", "AccessKey ID", "storage"),
-                ("objectsto_secret_key", "", "AccessKey Secret", "storage"),
-                ("objectsto_bucket_name", "mall-images", "Bucket 名称", "storage"),
-                ("objectsto_region", "us-east-1", "地域（S3 默认 us-east-1）", "storage"),
-                ("objectsto_public_endpoint", "http://127.0.0.1:9000", "公网访问地址", "storage"),
-                # 上传配置
-                ("upload_max_size", "10", "上传文件最大大小（MB）", "upload"),
-                ("upload_allowed_types", "jpg,jpeg,png,gif,webp,bmp", "允许上传的文件类型", "upload"),
             ]
 
             for key, value, description, group in default_configs:
@@ -345,3 +335,27 @@ class AdminUserDao:
                 session.add(config)
 
             LOG.info("已初始化 {} 条系统默认配置".format(len(default_configs)))
+
+    @classmethod
+    def _init_storage_config(cls):
+        """初始化对象存储配置（独立表）"""
+        from mall.db.models.StorageConfig.model import StorageConfig
+
+        if not cls._table_is_empty(StorageConfig):
+            LOG.info("StorageConfig 表已有数据，跳过初始化")
+            return
+
+        session = get_session()
+        with session.begin():
+            config = StorageConfig(
+                endpoint="http://127.0.0.1:9000",
+                access_key="",
+                secret_key="",
+                bucket_name="mall-images",
+                region="us-east-1",
+                public_endpoint="http://127.0.0.1:9000",
+                upload_max_size=10,
+                upload_allowed_types="jpg,jpeg,png,gif,webp,bmp",
+            )
+            session.add(config)
+            LOG.info("已初始化对象存储默认配置")
