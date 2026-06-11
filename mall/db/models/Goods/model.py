@@ -16,6 +16,7 @@ class GoodsSpu(BASE, SerializerMixin):
     __tablename__ = 't_mall_goods_spu'
 
     id = Column(String(255), primary_key=True,index=True,) # id
+    spu_id = Column(String(255), nullable=False, default='', comment='SPU唯一标识')
     title = Column(String(500), nullable=False, comment='商品标题')
     etitle = Column(String(500), default='', comment='英文标题')
 
@@ -51,6 +52,7 @@ class GoodsSku(BASE, SerializerMixin):
     __tablename__ = 't_mall_goods_sku'
 
     id =Column(String(255), primary_key=True) # id
+    sku_id = Column(String(255), nullable=False, default='', comment='SKU唯一标识')
     spu_id = Column(String(255), ForeignKey('t_mall_goods_spu.id'), comment='关联SPU')
     sku_image = Column(String(500), comment='SKU图片')
     price = Column(Integer, default=0, comment='销售价格(分)')
@@ -69,6 +71,7 @@ class GoodsSpec(BASE, SerializerMixin):
     __tablename__ = 't_mall_goods_spec'
 
     id = Column(String(255), primary_key=True) # id
+    spec_id = Column(String(255), nullable=False, default='', comment='规格唯一标识')
     spu_id = Column(String(255), comment='关联SPU')
     title = Column(String(100), nullable=False, comment='规格名称(如颜色、尺码)')
     spec_values = Column(Text, comment='规格值列表(JSON数组)')

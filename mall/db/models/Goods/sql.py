@@ -218,8 +218,10 @@ class GoodsSpuDao:
             tags = json.dumps(data.get("tags", [])) if data.get("tags") else "[]"
             store_id = data.get("storeId", "")
 
+            spu_id = uuid.uuid4().hex
             spu = GoodsSpu(
-                id = uuid.uuid4().hex,
+                id = spu_id,
+                spu_id = spu_id,
                 title=data.get("title", "").strip(),
                 etitle= data.get("etitle", ""),
                 primary_image=data.get("primaryImage", ""),#主图
@@ -234,6 +236,7 @@ class GoodsSpuDao:
                 stock_quantity=0,
                 sold_num=0,
                 is_put_on_sale=int(data.get("isPutOnSale", 0)),
+                is_available=1,
                 tags=tags,
                 store_id=store_id,
             )
@@ -250,9 +253,10 @@ class GoodsSpuDao:
             specs_data = data.get("specs", [])
             spec_id_map = {}
             for s in specs_data:
-                spec_id = s.get("specId")
+                spec_dbid = uuid.uuid4().hex
                 spec = GoodsSpec(
-                    id = uuid.uuid4().hex,
+                    id = spec_dbid,
+                    spec_id = spec_dbid,
                     spu_id=spu.id,
                     title=s.get("title", ""),
                     spec_values=json.dumps(s.get("values", [])),
@@ -279,8 +283,10 @@ class GoodsSpuDao:
                     max_lprice = line_price
                 total_stock += stock
 
+                sku_dbid = uuid.uuid4().hex
                 sku = GoodsSku(
-                    id=uuid.uuid4().hex,
+                    id=sku_dbid,
+                    sku_id=sku_dbid,
                     spu_id=spu.id,
                     sku_image=sk.get("skuImage", ""),
                     price=price,
