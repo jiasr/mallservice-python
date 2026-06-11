@@ -34,7 +34,7 @@ def save_settings(settings_dict):
     """保存系统配置
 
     Args:
-        settings_dict: 配置键值对字典，如 {"site_name": "商城", "storage_endpoint": "127.0.0.1:9000"}
+        settings_dict: 配置键值对字典，如 {"site_name": "商城", "objectsto_endpoint": "oss-cn-hangzhou.aliyuncs.com"}
     """
     session = get_session()
     try:
@@ -64,8 +64,8 @@ def save_settings(settings_dict):
                     )
                     session.add(new_config)
 
-        # 如果修改了存储相关配置，重置 S3 client 单例
-        if any(k.startswith("storage_") for k in settings_dict):
+        # 如果修改了对象存储相关配置，重置 S3 client 单例
+        if any(k.startswith("objectsto_") for k in settings_dict):
             from mall.common.storage.base import reset_client
             reset_client()
 
@@ -78,7 +78,7 @@ def save_settings(settings_dict):
 
 def _guess_group(key):
     """根据配置键名猜测分组"""
-    if key.startswith("storage_"):
+    if key.startswith("objectsto_"):
         return "storage"
     elif key.startswith("upload_"):
         return "upload"

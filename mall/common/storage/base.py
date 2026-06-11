@@ -73,13 +73,13 @@ def _ensure_bucket(client, bucket_name):
                 LOG.warning("创建 bucket 失败: {}".format(ce))
                 return
 
-            # 设置公开读策略
+            # 设置公开读写策略（预签名上传需要 s3:PutObject 权限）
             policy = {
                 "Version": "2012-10-17",
                 "Statement": [{
                     "Effect": "Allow",
                     "Principal": "*",
-                    "Action": "s3:GetObject",
+                    "Action": ["s3:GetObject", "s3:PutObject"],
                     "Resource": "arn:aws:s3:::{}/*".format(bucket_name),
                 }],
             }

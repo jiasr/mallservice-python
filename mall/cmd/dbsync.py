@@ -26,6 +26,7 @@ def table_sync():
     from mall.db.models.Goods.model import GoodsSpu, GoodsSku,GoodsSpec
     from mall.db.models.Admin.model import AdminUser, AdminRole, AdminMenu, AdminRoleMenu
     from mall.db.models.SystemConfig.model import SystemConfig
+    from mall.db.models.Region.model import Region
 
     tables = [
         BASE.metadata.tables["t_mall_user"],
@@ -39,41 +40,47 @@ def table_sync():
         BASE.metadata.tables["t_mall_admin_menu"],
         BASE.metadata.tables["t_mall_admin_role_menu"],
         BASE.metadata.tables["t_mall_system_config"],
+        BASE.metadata.tables["regions"],
     ]
     BASE.metadata.create_all(get_engine(), tables=tables, checkfirst=True)
 
 def init_area():
-
-    data = {}
-    with open("./area.json", 'r', encoding='utf-8') as f:
-        data = json.load(f)
-        session = get_session()
-        result = session.execute("SELECT * FROM regions limit 1")
-        print(result)
-        if result.rowcount == 0:
-            sql = "insert into regions(id,code, name, parent_code, level) VALUES('{}', '{}', '{}','{}',{}) "
-            for provinces in data:
-                plabel = provinces.get("label")
-                pvalue = provinces.get("value")
-                citys=provinces.get("children")
-                psql=sql.format(uuid.uuid4().hex,pvalue,plabel,'',1)
-                print(psql)
-                session.execute(psql)
-                for city in citys:
-                    clabel = city.get("label")
-                    cvalue = city.get("value")
-                    districts = city.get("children")
-                    csql =sql.format(uuid.uuid4().hex, cvalue, clabel, pvalue, 2)
-                    print(csql)
-                    session.execute(csql)
-                    for district in districts:
-                        dlabel = district.get("label")
-                        dvalue = district.get("value")
-                        dsql = sql.format(uuid.uuid4().hex,dvalue , dlabel, cvalue, 3)
-                        print(dsql)
-                        session.execute(dsql)
-        else:
-            LOG.info("area has been inited")
+    """初始化省市区数据（如果 regions 表不存在则跳过）"""
+    try:
+        data = {}
+        with open("./area.json", 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            session = get_session()
+            result = session.execute("SELECT * FROM regions limit 1")
+            print(result)
+            if result.rowcount == 0:
+                sql = "insert into regions(id,code, name, parent_code, level) VALUES('{}', '{}', '{}','{}',{}) "
+                for provinces in data:
+                    plabel = provinces.get("label")
+                    pvalue = provinces.get("value")
+                    citys = provinces.get("children")
+                    psql = sql.format(uuid.uuid4().hex, pvalue, plabel, '', 1)
+                    print(psql)
+                    session.execute(psql)
+                    for city in citys:
+                        clabel = city.get("label")
+                        cvalue = city.get("value")
+                        districts = city.get("children")
+                        csql = sql.format(uuid.uuid4().hex, cvalue, clabel, pvalue, 2)
+                        print(csql)
+                        session.execute(csql)
+                        for district in districts:
+                            dlabel = district.get("label")
+                            dvalue = district.get("value")
+                            dsql = sql.format(uuid.uuid4().hex, dvalue, dlabel, cvalue, 3)
+                            print(dsql)
+                            session.execute(dsql)
+                session.commit()
+                LOG.info("省市区数据初始化完成")
+            else:
+                LOG.info("area has been inited")
+    except Exception as e:
+        LOG.warning("初始化省市区数据失败（regions 表可能不存在）: {}".format(e))
 
 
 

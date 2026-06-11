@@ -1,5 +1,5 @@
 """图片上传服务（基于统一 boto3 S3 存储）"""
-from mall.common.minio_utils import generate_object_name
+from mall.common.objectsto_utils import generate_object_name
 from mall.common.storage import base as storage
 from oslo_log import log as logging
 
