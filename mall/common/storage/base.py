@@ -12,7 +12,6 @@
 """
 import json
 from datetime import timedelta
-from urllib.parse import urlparse, urlunparse
 
 import boto3
 from botocore.exceptions import ClientError, BotoCoreError
@@ -38,7 +37,10 @@ def _build_s3_client(config):
         connect_timeout=_CONNECT_TIMEOUT,
         read_timeout=_READ_TIMEOUT,
         retries={'max_attempts': 2},
-        s3={'addressing_style': 'path'},  # path-style 兼容更多存储
+        s3={
+            'addressing_style': 'path',     # path-style 兼容更多存储
+            'signature_version': 's3v4',    # MinIO 要求 Signature V4
+        },
     )
 
     kwargs = dict(
@@ -141,29 +143,29 @@ def reset_client():
 
 # ==================== 对外接口 ====================
 
-def _replace_host(url, config):
-    """将预签名 URL 的 host 替换为 public_endpoint
+def _get_public_client():
+    """获取使用 public_endpoint 的 S3 client
 
-    endpoint 用于后端连接 MinIO（可能是内网地址），
-    public_endpoint 用于前端浏览器直传和下载（必须是公网地址）。
-    如果 public_endpoint 为空则不替换。
+    用于生成预签名 URL 时，签名中包含正确的公网 Host 头。
+    如果未配置 public_endpoint，返回默认 client。
     """
+    from mall.common.storage.config import get_storage_config
+    config = get_storage_config()
     public_ep = config.get('public_endpoint', '').strip()
     if not public_ep:
-        return url
+        return get_client()
 
-    if not public_ep.startswith('http://') and not public_ep.startswith('https://'):
-        public_ep = 'http://' + public_ep
-
-    pub_parsed = urlparse(public_ep)
-    parsed = urlparse(url)
-    return urlunparse(parsed._replace(netloc=pub_parsed.netloc, scheme=pub_parsed.scheme))
+    pub_config = dict(config)
+    pub_config['endpoint'] = public_ep
+    pub_client = _build_s3_client(pub_config)
+    return pub_client, pub_config
 
 
 def get_presigned_upload_url(object_name, expires=300):
     """生成预签名上传 URL
 
-    如果配置了 public_endpoint，会自动将 URL 中的 host 替换为公网地址。
+    如果配置了 public_endpoint，签名将基于公网地址生成，
+    确保浏览器直传时签名验证通过。
 
     Args:
         object_name: 对象路径（如 images/product/202406/xxx.jpg）
@@ -172,7 +174,7 @@ def get_presigned_upload_url(object_name, expires=300):
     Returns:
         str: 预签名 PUT URL
     """
-    client, config = get_client()
+    client, config = _get_public_client()
     bucket = config.get('bucket_name', '')
     url = client.generate_presigned_url(
         'put_object',
@@ -180,7 +182,7 @@ def get_presigned_upload_url(object_name, expires=300):
         ExpiresIn=expires,
         HttpMethod='PUT',
     )
-    return _replace_host(url, config)
+    return url
 
 
 def get_public_url(object_name):
@@ -212,7 +214,7 @@ def get_presigned_download_url(object_name, expires=3600):
     """生成预签名下载 URL（带签名的 GET URL）
 
     用于 bucket 为私有读时，生成带签名的临时访问链接供前端显示图片。
-    如果配置了 public_endpoint，会自动将 URL 中的 host 替换为公网地址。
+    如果配置了 public_endpoint，签名将基于公网地址生成。
 
     Args:
         object_name: 对象路径（如 images/product/202406/xxx.jpg）
@@ -221,7 +223,7 @@ def get_presigned_download_url(object_name, expires=3600):
     Returns:
         str: 预签名 GET URL
     """
-    client, config = get_client()
+    client, config = _get_public_client()
     bucket = config.get('bucket_name', '')
     url = client.generate_presigned_url(
         'get_object',
@@ -229,7 +231,7 @@ def get_presigned_download_url(object_name, expires=3600):
         ExpiresIn=expires,
         HttpMethod='GET',
     )
-    return _replace_host(url, config)
+    return url
 
 
 def delete_object(object_name):
