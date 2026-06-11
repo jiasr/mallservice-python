@@ -42,12 +42,16 @@ class GoodsSpuDao:
         min_price = params.get("minPrice")
         max_price = params.get("maxPrice")
         category_id = params.get("categoryId")
+        status = params.get("isPutOnSale")
 
         with session.begin():
             query = session.query(GoodsSpu).filter(
-                GoodsSpu.is_put_on_sale == 1,
                 GoodsSpu.is_available == 1,
             )
+
+            # 上架状态筛选（不传则查全部）
+            if status is not None and status != '':
+                query = query.filter(GoodsSpu.is_put_on_sale == int(status))
 
             # 关键词搜索
             if keyword:

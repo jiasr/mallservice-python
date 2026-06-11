@@ -16,7 +16,7 @@ from mall.db.engines.mysql import get_engine, get_session
 LOG = logging.getLogger(__name__)
 
 # 需要保留的表名（不清空）
-_KEEP_TABLES = {'regions'}
+_KEEP_TABLES = {'regions','t_mall_goods_catalog'}
 
 # 需要按顺序创建的表（按依赖关系排序，被依赖的在前）
 _TABLE_CREATE_ORDER = [
