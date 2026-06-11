@@ -92,6 +92,38 @@ def delete_image(object_name):
     return storage.delete_object(object_name)
 
 
+def upload_file(scene, file_data, filename):
+    """服务端直接上传文件到存储（代理上传，不依赖浏览器直传）
+
+    Args:
+        scene: 场景标识（product/system/avatar/banner/editor）
+        file_data: 文件二进制数据 (bytes)
+        filename: 原始文件名
+
+    Returns:
+        dict: {"object_name": str, "public_url": str}
+    """
+    prefix = SCENE_PREFIX_MAP.get(scene, "images/other")
+    obj_name = generate_object_name(prefix, filename)
+
+    # 根据后缀确定 Content-Type
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    content_type = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+        'bmp': 'image/bmp',
+    }.get(ext, 'application/octet-stream')
+
+    public_url = storage.upload_file(obj_name, file_data, content_type)
+    return {
+        "object_name": obj_name,
+        "public_url": public_url,
+    }
+
+
 def test_storage_connection():
     """测试当前存储连接
 

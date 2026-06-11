@@ -58,6 +58,30 @@ class UploadDelete(Resource):
         return {"success": success}
 
 
+@ns_upload.route('/file', methods=['POST'])
+class UploadFile(Resource):
+    """服务端代理上传文件（不经过浏览器直传 MinIO）"""
+
+    @admin_required
+    @deco_catch_view_exception("上传文件")
+    def post(self):
+        if 'file' not in request.files:
+            return {"success": False, "message": "没有上传文件"}
+
+        file = request.files['file']
+        scene = request.form.get('scene', 'product')
+        filename = file.filename or 'image.jpg'
+        file_data = file.read()
+
+        # 检查文件大小（10MB）
+        max_size = 10 * 1024 * 1024
+        if len(file_data) > max_size:
+            return {"success": False, "message": "文件大小超过限制（10MB）"}
+
+        result = image_service.upload_file(scene, file_data, filename)
+        return {"success": True, "data": result}
+
+
 @ns_upload.route('/test', methods=['POST'])
 class UploadTest(Resource):
     """测试存储连接"""
