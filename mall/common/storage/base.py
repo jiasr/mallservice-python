@@ -72,24 +72,41 @@ def _ensure_bucket(client, bucket_name):
             except ClientError as ce:
                 LOG.warning("创建 bucket 失败: {}".format(ce))
                 return
-
-            # 设置公开读写策略（预签名上传需要 s3:PutObject 权限）
-            policy = {
-                "Version": "2012-10-17",
-                "Statement": [{
-                    "Effect": "Allow",
-                    "Principal": "*",
-                    "Action": ["s3:GetObject", "s3:PutObject"],
-                    "Resource": "arn:aws:s3:::{}/*".format(bucket_name),
-                }],
-            }
-            try:
-                client.put_bucket_policy(Bucket=bucket_name, Policy=json.dumps(policy))
-                LOG.info("已设置 bucket {} 为公开读权限".format(bucket_name))
-            except ClientError as pe:
-                LOG.warning("设置公开读策略失败（可忽略）: {}".format(pe))
         else:
             LOG.warning("检查 bucket 时出错: {}".format(e))
+            return
+
+    # 无论 bucket 是否已存在，都设置公开读策略
+    policy = {
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Effect": "Allow",
+            "Principal": {"AWS": ["*"]},
+            "Action": ["s3:GetObject"],
+            "Resource": ["arn:aws:s3:::{}/*".format(bucket_name)],
+        }],
+    }
+    try:
+        client.put_bucket_policy(Bucket=bucket_name, Policy=json.dumps(policy))
+        LOG.info("已设置 bucket {} 为公开读权限".format(bucket_name))
+    except ClientError as pe:
+        LOG.warning("设置公开读策略失败（可忽略）: {}".format(pe))
+
+    # 设置 CORS，允许浏览器直传
+    cors_config = {
+        "CORSRules": [{
+            "AllowedHeaders": ["*"],
+            "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+            "AllowedOrigins": ["*"],
+            "ExposeHeaders": ["ETag", "x-amz-request-id"],
+            "MaxAgeSeconds": 3600,
+        }],
+    }
+    try:
+        client.put_bucket_cors(Bucket=bucket_name, CORSConfiguration=cors_config)
+        LOG.info("已设置 bucket {} 的 CORS 跨域规则".format(bucket_name))
+    except ClientError as ce:
+        LOG.warning("设置 CORS 失败（可忽略）: {}".format(ce))
 
 
 def get_client():
@@ -148,6 +165,7 @@ def get_public_url(object_name):
     """获取对象公网访问 URL
 
     优先使用 public_endpoint，否则用 endpoint 拼接。
+    注意：此 URL 不含签名，适用于公开读的 bucket。
     """
     _, config = get_client()
     bucket = config.get('bucket_name', '')
@@ -166,6 +184,30 @@ def get_public_url(object_name):
     # 最后的回退：AWS 默认格式
     region = config.get('region', 'us-east-1')
     return "https://{}.s3.{}.amazonaws.com/{}".format(bucket, region, object_name)
+
+
+def get_presigned_download_url(object_name, expires=3600):
+    """生成预签名下载 URL（带签名的 GET URL）
+
+    用于 bucket 为私有读时，生成带签名的临时访问链接供前端显示图片。
+    签名有效期默认 1 小时。
+
+    Args:
+        object_name: 对象路径（如 images/product/202406/xxx.jpg）
+        expires: URL 有效期（秒），默认 3600
+
+    Returns:
+        str: 预签名 GET URL
+    """
+    client, config = get_client()
+    bucket = config.get('bucket_name', '')
+    url = client.generate_presigned_url(
+        'get_object',
+        Params={'Bucket': bucket, 'Key': object_name},
+        ExpiresIn=expires,
+        HttpMethod='GET',
+    )
+    return url
 
 
 def delete_object(object_name):
