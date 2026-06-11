@@ -12,6 +12,7 @@
 """
 import json
 from datetime import timedelta
+from urllib.parse import urlparse, urlunparse
 
 import boto3
 from botocore.exceptions import ClientError, BotoCoreError
@@ -140,8 +141,29 @@ def reset_client():
 
 # ==================== 对外接口 ====================
 
+def _replace_host(url, config):
+    """将预签名 URL 的 host 替换为 public_endpoint
+
+    endpoint 用于后端连接 MinIO（可能是内网地址），
+    public_endpoint 用于前端浏览器直传和下载（必须是公网地址）。
+    如果 public_endpoint 为空则不替换。
+    """
+    public_ep = config.get('public_endpoint', '').strip()
+    if not public_ep:
+        return url
+
+    if not public_ep.startswith('http://') and not public_ep.startswith('https://'):
+        public_ep = 'http://' + public_ep
+
+    pub_parsed = urlparse(public_ep)
+    parsed = urlparse(url)
+    return urlunparse(parsed._replace(netloc=pub_parsed.netloc, scheme=pub_parsed.scheme))
+
+
 def get_presigned_upload_url(object_name, expires=300):
     """生成预签名上传 URL
+
+    如果配置了 public_endpoint，会自动将 URL 中的 host 替换为公网地址。
 
     Args:
         object_name: 对象路径（如 images/product/202406/xxx.jpg）
@@ -158,7 +180,7 @@ def get_presigned_upload_url(object_name, expires=300):
         ExpiresIn=expires,
         HttpMethod='PUT',
     )
-    return url
+    return _replace_host(url, config)
 
 
 def get_public_url(object_name):
@@ -190,7 +212,7 @@ def get_presigned_download_url(object_name, expires=3600):
     """生成预签名下载 URL（带签名的 GET URL）
 
     用于 bucket 为私有读时，生成带签名的临时访问链接供前端显示图片。
-    签名有效期默认 1 小时。
+    如果配置了 public_endpoint，会自动将 URL 中的 host 替换为公网地址。
 
     Args:
         object_name: 对象路径（如 images/product/202406/xxx.jpg）
@@ -207,7 +229,7 @@ def get_presigned_download_url(object_name, expires=3600):
         ExpiresIn=expires,
         HttpMethod='GET',
     )
-    return url
+    return _replace_host(url, config)
 
 
 def delete_object(object_name):

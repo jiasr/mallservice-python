@@ -44,8 +44,8 @@ def get_upload_credential(scene, filename, count=1):
             obj_name = generate_object_name(prefix, "file_{}{}".format(i, filename))
 
         upload_url = storage.get_presigned_upload_url(obj_name)
-        # 使用预签名下载 URL，确保私有 bucket 也能正常访问图片
-        public_url = storage.get_presigned_download_url(obj_name)
+        # bucket 已设为公开读，直接使用公网 URL（不会过期）
+        public_url = storage.get_public_url(obj_name)
 
         credentials.append({
             "object_name": obj_name,
@@ -67,7 +67,7 @@ def confirm_upload(object_name):
     """
     try:
         if storage.object_exists(object_name):
-            public_url = storage.get_presigned_download_url(object_name)
+            public_url = storage.get_public_url(object_name)
             return {
                 "object_name": object_name,
                 "public_url": public_url,
