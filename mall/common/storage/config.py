@@ -46,12 +46,12 @@ def get_storage_config():
 
     # 返回默认值
     return {
-        "endpoint": "http://127.0.0.1:9000",
-        "access_key": "",
-        "secret_key": "",
-        "bucket_name": "mall-images",
+        "endpoint": "http://82.156.225.136:9000",
+        "access_key": "admin",
+        "secret_key": "password123",
+        "bucket_name": "mall-images1",
         "region": "us-east-1",
-        "public_endpoint": "http://127.0.0.1:9000",
+        "public_endpoint": "http://82.156.225.136:9000",
         "upload_max_size": 10,
         "upload_allowed_types": "jpg,jpeg,png,gif,webp,bmp",
     }
