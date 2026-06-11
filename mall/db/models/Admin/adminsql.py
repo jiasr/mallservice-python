@@ -217,7 +217,7 @@ class AdminUserDao:
                 # 系统设置子菜单
                 (22, "基本设置", "/setting/base", "Tools", 8, 1, ""),
                 (23, "角色与权限", "/setting/role", "Key", 8, 2, "admin:manage"),
-                (24, "MinIO 配置", "/setting/minio", "Folder", 8, 3, ""),
+                (24, "存储配置", "/setting/minio", "Folder", 8, 3, ""),
             ]
 
             for (mid, name, frontpath, icon, parent_id, sort_order, permission) in default_menus:
@@ -323,13 +323,13 @@ class AdminUserDao:
                 ("allow_register", "true", "是否允许注册", "access"),
                 ("register_need_audit", "false", "注册是否需要审核", "access"),
                 ("enable_distribution", "true", "是否启用分销", "access"),
-                # MinIO 配置
-                ("minio_endpoint", "127.0.0.1:9000", "MinIO API 地址", "minio"),
-                ("minio_access_key", "minioadmin", "MinIO Access Key", "minio"),
-                ("minio_secret_key", "minioadmin", "MinIO Secret Key", "minio"),
-                ("minio_bucket_name", "mall-images", "MinIO Bucket 名称", "minio"),
-                ("minio_secure", "false", "是否使用 HTTPS", "minio"),
-                ("minio_public_endpoint", "http://127.0.0.1:9000", "MinIO 公网访问地址（用于前端展示）", "minio"),
+                # 通用 S3 兼容存储配置（支持 MinIO / COS / OSS / S3 / R2 等）
+                ("storage_endpoint", "127.0.0.1:9000", "存储端点（如 127.0.0.1:9000 / cos.ap-guangzhou.myqcloud.com）", "storage"),
+                ("storage_access_key", "minioadmin", "Access Key", "storage"),
+                ("storage_secret_key", "minioadmin", "Secret Key", "storage"),
+                ("storage_bucket_name", "mall-images", "Bucket 名称", "storage"),
+                ("storage_region", "us-east-1", "地域（可选）", "storage"),
+                ("storage_public_endpoint", "http://127.0.0.1:9000", "公网访问地址（CDN/自定义域名）", "storage"),
                 # 上传配置
                 ("upload_max_size", "10", "上传文件最大大小（MB）", "upload"),
                 ("upload_allowed_types", "jpg,jpeg,png,gif,webp,bmp", "允许上传的文件类型", "upload"),

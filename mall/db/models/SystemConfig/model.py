@@ -12,6 +12,6 @@ class SystemConfig(BASE, DbBase):
     config_key = Column(String(128), unique=True, nullable=False, comment='配置键名')
     config_value = Column(Text, default='', comment='配置值')
     description = Column(String(255), default='', comment='配置说明')
-    config_group = Column(String(64), default='general', comment='配置分组 general/upload/minio')
+    config_group = Column(String(64), default='general', comment='配置分组 general/upload/storage/access')
     create_time = Column(DateTime, default=datetime.now)
     update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)

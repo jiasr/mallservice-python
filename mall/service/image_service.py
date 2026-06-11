@@ -1,11 +1,6 @@
-"""图片上传服务"""
-from mall.common.minio_utils import (
-    get_minio_client,
-    generate_object_name,
-    get_presigned_upload_url,
-    get_public_url,
-    delete_file,
-)
+"""图片上传服务（基于统一 boto3 S3 存储）"""
+from mall.common.minio_utils import generate_object_name
+from mall.common.storage import base as storage
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
@@ -48,8 +43,8 @@ def get_upload_credential(scene, filename, count=1):
         else:
             obj_name = generate_object_name(prefix, "file_{}{}".format(i, filename))
 
-        upload_url = get_presigned_upload_url(obj_name)
-        public_url = get_public_url(obj_name)
+        upload_url = storage.get_presigned_upload_url(obj_name)
+        public_url = storage.get_public_url(obj_name)
 
         credentials.append({
             "object_name": obj_name,
@@ -61,22 +56,24 @@ def get_upload_credential(scene, filename, count=1):
 
 
 def confirm_upload(object_name):
-    """确认上传完成（可选：检查文件是否存在）
+    """确认上传完成（检查文件是否已存在于存储中）
 
     Args:
         object_name: 对象名称
 
     Returns:
-        dict: {"object_name": "...", "public_url": "..."}
+        dict or None: {"object_name": "...", "public_url": "..."}
     """
     try:
-        client, config = get_minio_client()
-        client.stat_object(config["bucket_name"], object_name)
-        public_url = get_public_url(object_name)
-        return {
-            "object_name": object_name,
-            "public_url": public_url,
-        }
+        if storage.object_exists(object_name):
+            public_url = storage.get_public_url(object_name)
+            return {
+                "object_name": object_name,
+                "public_url": public_url,
+            }
+        else:
+            LOG.warning("确认上传时文件不存在: {}".format(object_name))
+            return None
     except Exception as e:
         LOG.error("确认上传失败: {}".format(e))
         return None
@@ -91,4 +88,13 @@ def delete_image(object_name):
     Returns:
         bool: 是否成功
     """
-    return delete_file(object_name)
+    return storage.delete_object(object_name)
+
+
+def test_storage_connection():
+    """测试当前存储连接
+
+    Returns:
+        bool: 连接是否正常
+    """
+    return storage.test_connection()
