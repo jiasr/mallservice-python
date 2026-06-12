@@ -82,15 +82,4 @@ class UploadFile(Resource):
         return {"success": True, "data": result}
 
 
-@ns_upload.route('/test', methods=['POST'])
-class UploadTest(Resource):
-    """测试存储连接"""
 
-    @admin_required
-    @deco_catch_view_exception("测试存储连接")
-    def post(self):
-        ok = image_service.test_storage_connection()
-        if ok:
-            return {"success": True, "message": "连接成功"}
-        else:
-            return {"success": False, "message": "连接失败"}

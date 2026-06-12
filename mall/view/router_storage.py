@@ -6,6 +6,7 @@ from flask_restx import Namespace, Resource
 from oslo_log import log as logging
 
 from mall.common.common import admin_required, deco_catch_view_exception
+from mall.common.storage.base import test_connection
 from mall.service import storage_config_service
 
 LOG = logging.getLogger(__name__)
@@ -37,3 +38,17 @@ class StorageSave(Resource):
         data = json.loads(request.data)
         success = storage_config_service.save_storage_config(data)
         return {"success": success}
+
+
+@ns_storage.route('/storage/test', methods=['POST'])
+class StorageTest(Resource):
+    """测试存储连接"""
+
+    @admin_required
+    @deco_catch_view_exception("测试存储连接")
+    def post(self):
+        ok = test_connection()
+        if ok:
+            return {"success": True, "message": "连接成功"}
+        else:
+            return {"success": False, "message": "连接失败", "data": {}}
