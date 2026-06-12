@@ -1,6 +1,6 @@
 """图片上传服务（基于统一 boto3 S3 存储）"""
 from mall.common.objectsto_utils import generate_object_name
-from mall.db.engines import storage
+from mall.db.engines import s3
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
@@ -43,9 +43,9 @@ def get_upload_credential(scene, filename, count=1):
         else:
             obj_name = generate_object_name(prefix, "file_{}{}".format(i, filename))
 
-        upload_url = storage.get_presigned_upload_url(obj_name)
+        upload_url = s3.get_presigned_upload_url(obj_name)
         # bucket 已设为公开读，直接使用公网 URL（不会过期）
-        public_url = storage.get_public_url(obj_name)
+        public_url = s3.get_public_url(obj_name)
 
         credentials.append({
             "object_name": obj_name,
@@ -66,8 +66,8 @@ def confirm_upload(object_name):
         dict or None: {"object_name": "...", "public_url": "..."}
     """
     try:
-        if storage.object_exists(object_name):
-            public_url = storage.get_public_url(object_name)
+        if s3.object_exists(object_name):
+            public_url = s3.get_public_url(object_name)
             return {
                 "object_name": object_name,
                 "public_url": public_url,
@@ -89,7 +89,7 @@ def delete_image(object_name):
     Returns:
         bool: 是否成功
     """
-    return storage.delete_object(object_name)
+    return s3.delete_object(object_name)
 
 
 def upload_file(scene, file_data, filename):
@@ -117,9 +117,9 @@ def upload_file(scene, file_data, filename):
         'bmp': 'image/bmp',
     }.get(ext, 'application/octet-stream')
 
-    storage.upload_file(obj_name, file_data, content_type)
+    s3.upload_file(obj_name, file_data, content_type)
     # 返回相对 URL（存储到数据库不包含域名）
-    relative_url = storage.get_relative_url(obj_name)
+    relative_url = s3.get_relative_url(obj_name)
     return {
         "object_name": obj_name,
         "public_url": relative_url,
@@ -132,4 +132,4 @@ def test_storage_connection():
     Returns:
         bool: 连接是否正常
     """
-    return storage.test_connection()
+    return s3.test_connection()

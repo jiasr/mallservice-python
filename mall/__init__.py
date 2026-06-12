@@ -15,7 +15,7 @@ from mall.view.router_good import app_goods,ns_goods
 from mall.view.router_admin import app_admin,ns_admin
 from mall.view.router_upload import app_upload,ns_upload
 from mall.view.router_setting import app_setting,ns_setting
-from mall.view.router_storage import app_storage,ns_storage
+from mall.view.router_s3 import app_storage,ns_storage
 
 
 LOG = logging.getLogger(__name__)

@@ -6,8 +6,8 @@ from flask_restx import Namespace, Resource
 from oslo_log import log as logging
 
 from mall.common.common import admin_required, deco_catch_view_exception
-from mall.db.engines.storage import test_connection
-from mall.service import storage_config_service
+from mall.db.engines.s3 import test_connection
+from mall.service import s3_config_service
 
 LOG = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class StorageGet(Resource):
     @admin_required
     @deco_catch_view_exception("获取存储配置")
     def post(self):
-        return storage_config_service.get_storage_config()
+        return s3_config_service.get_storage_config()
 
     def get(self):
         return self.post()
@@ -36,7 +36,7 @@ class StorageSave(Resource):
     @deco_catch_view_exception("保存存储配置")
     def post(self):
         data = json.loads(request.data)
-        success = storage_config_service.save_storage_config(data)
+        success = s3_config_service.save_storage_config(data)
         return {"success": success}
 
 
