@@ -3,7 +3,7 @@
 """
 from mall.db.engines.mysql import get_session
 from mall.db.models.StorageConfig.model import StorageConfig
-from mall.common.storage.base import reset_client
+from mall.db.engines.storage.base import reset_client
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)

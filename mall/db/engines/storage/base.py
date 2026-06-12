@@ -19,7 +19,7 @@ from botocore.exceptions import ClientError, BotoCoreError
 from botocore.config import Config as BotoConfig
 from oslo_log import log as logging
 
-from mall.common.storage.config import get_storage_config
+from mall.db.engines.storage.config import get_storage_config
 
 LOG = logging.getLogger(__name__)
 
