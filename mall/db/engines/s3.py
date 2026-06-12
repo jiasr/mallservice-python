@@ -285,6 +285,50 @@ def object_exists(object_name):
         return False
 
 
+def list_objects(prefix="", delimiter="/", max_keys=1000):
+    """列出 bucket 中的对象（模拟文件夹浏览）
+
+    Args:
+        prefix: 路径前缀
+        delimiter: 分隔符，默认 "/" 实现文件夹分层
+        max_keys: 最大返回数
+
+    Returns:
+        dict: {
+            "files": [{"key": "...", "size": ..., "last_modified": "..."}],
+            "folders": ["prefix1/", "prefix2/"],
+        }
+    """
+    try:
+        client, config = get_client()
+        bucket = config.get('bucket_name', '')
+        resp = client.list_objects_v2(
+            Bucket=bucket,
+            Prefix=prefix,
+            Delimiter=delimiter,
+            MaxKeys=max_keys,
+        )
+
+        files = []
+        for obj in resp.get('Contents', []):
+            if obj['Key'] == prefix:
+                continue
+            files.append({
+                "key": obj['Key'],
+                "size": obj['Size'],
+                "last_modified": obj['LastModified'].isoformat() if obj.get('LastModified') else '',
+            })
+
+        folders = []
+        for folder in resp.get('CommonPrefixes', []):
+            folders.append(folder['Prefix'])
+
+        return {"files": files, "folders": folders}
+    except (ClientError, BotoCoreError) as e:
+        LOG.error("列出文件失败: {}".format(e))
+        return {"files": [], "folders": []}
+
+
 def test_connection():
     """用当前已保存的配置测试连接"""
     try:
