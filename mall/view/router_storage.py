@@ -6,7 +6,7 @@ from flask_restx import Namespace, Resource
 from oslo_log import log as logging
 
 from mall.common.common import admin_required, deco_catch_view_exception
-from mall.db.engines.storage.base import test_connection
+from mall.db.engines.storage import test_connection
 from mall.service import storage_config_service
 
 LOG = logging.getLogger(__name__)

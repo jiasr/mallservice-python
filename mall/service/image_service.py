@@ -1,6 +1,6 @@
 """图片上传服务（基于统一 boto3 S3 存储）"""
 from mall.common.objectsto_utils import generate_object_name
-from mall.db.engines.storage import base as storage
+from mall.db.engines import storage
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)

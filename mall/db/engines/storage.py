@@ -1,25 +1,18 @@
-"""统一对象存储后端（基于 boto3 S3 协议）
+"""对象存储引擎（基于 boto3 S3 协议）
 
-通过 S3 兼容协议支持所有主流存储厂商：
-- MinIO / Ceph / 自建 S3
-- 腾讯云 COS
-- 阿里云 OSS
-- AWS S3
-- Cloudflare R2
-- 其他 S3 兼容存储
-
+支持：MinIO / Ceph / 腾讯云 COS / 阿里云 OSS / AWS S3 / Cloudflare R2
 只需配置 Endpoint + AccessKey + SecretKey + Bucket 即可。
 """
 import json
 from io import BytesIO
-from datetime import timedelta
 
 import boto3
 from botocore.exceptions import ClientError, BotoCoreError
 from botocore.config import Config as BotoConfig
 from oslo_log import log as logging
 
-from mall.db.engines.storage.config import get_storage_config
+from mall.db.engines.mysql import get_session
+from mall.db.models.StorageConfig.model import StorageConfig
 
 LOG = logging.getLogger(__name__)
 
@@ -27,22 +20,55 @@ LOG = logging.getLogger(__name__)
 _CONNECT_TIMEOUT = 10
 _READ_TIMEOUT = 30
 
-_client = None
+_s3_client = None
 _config_hash = None
 
 
-def _build_s3_client(config):
-    """根据配置构建 boto3 S3 client
+# ==================== 配置读取 ====================
 
-    通过 endpoint_url 字段适配所有 S3 兼容存储。
-    """
+
+def get_storage_config():
+    """从数据库读取对象存储配置"""
+    try:
+        session = get_session()
+        with session.begin():
+            config = session.query(StorageConfig).first()
+
+        if config:
+            return {
+                "endpoint": config.endpoint or "",
+                "access_key": config.access_key or "",
+                "secret_key": config.secret_key or "",
+                "bucket_name": config.bucket_name or "",
+                "region": config.region or "us-east-1",
+                "public_endpoint": config.public_endpoint or "",
+            }
+    except Exception as e:
+        LOG.warning("从数据库加载存储配置失败: {}".format(e))
+
+    # 返回默认值
+    return {
+        "endpoint": "http://82.156.225.136:9000",
+        "access_key": "admin",
+        "secret_key": "password123",
+        "bucket_name": "mall-images1",
+        "region": "us-east-1",
+        "public_endpoint": "http://82.156.225.136:9000",
+    }
+
+
+# ==================== S3 客户端 ====================
+
+
+def _build_s3_client(config):
+    """根据配置构建 boto3 S3 client"""
     boto_config = BotoConfig(
         connect_timeout=_CONNECT_TIMEOUT,
         read_timeout=_READ_TIMEOUT,
         retries={'max_attempts': 2},
         s3={
-            'addressing_style': 'path',     # path-style 兼容更多存储
-            'signature_version': 's3v4',    # MinIO 要求 Signature V4
+            'addressing_style': 'path',
+            'signature_version': 's3v4',
         },
     )
 
@@ -56,7 +82,6 @@ def _build_s3_client(config):
 
     endpoint = config.get('endpoint', '').strip()
     if endpoint:
-        # 自动补全 http:// 前缀
         if not endpoint.startswith('http://') and not endpoint.startswith('https://'):
             endpoint = 'http://' + endpoint
         kwargs['endpoint_url'] = endpoint
@@ -82,7 +107,6 @@ def _ensure_bucket(client, bucket_name):
             LOG.warning("检查 bucket 时出错: {}".format(e))
             return
 
-    # 无论 bucket 是否已存在，都设置公开读策略
     policy = {
         "Version": "2012-10-17",
         "Statement": [{
@@ -98,7 +122,6 @@ def _ensure_bucket(client, bucket_name):
     except ClientError as pe:
         LOG.warning("设置公开读策略失败（可忽略）: {}".format(pe))
 
-    # 设置 CORS，允许浏览器直传
     cors_config = {
         "CORSRules": [{
             "AllowedHeaders": ["*"],
@@ -116,41 +139,34 @@ def _ensure_bucket(client, bucket_name):
 
 
 def get_client():
-    """获取 S3 client（单例，配置变更自动重建）
-
-    Returns:
-        tuple: (boto3_s3_client, config_dict)
-    """
-    global _client, _config_hash
+    """获取 S3 client（单例，配置变更自动重建）"""
+    global _s3_client, _config_hash
 
     config = get_storage_config()
     new_hash = str(sorted(config.items()))
 
-    if _client is None or new_hash != _config_hash:
-        _client = _build_s3_client(config)
+    if _s3_client is None or new_hash != _config_hash:
+        _s3_client = _build_s3_client(config)
         _config_hash = new_hash
         bucket = config.get('bucket_name', '')
         if bucket:
-            _ensure_bucket(_client, bucket)
+            _ensure_bucket(_s3_client, bucket)
 
-    return _client, config
+    return _s3_client, config
 
 
 def reset_client():
-    """重置 client（用于配置变更后强制重建）"""
-    global _client, _config_hash
-    _client = None
+    """重置 S3 client（配置变更后强制重建）"""
+    global _s3_client, _config_hash
+    _s3_client = None
     _config_hash = None
 
 
 # ==================== 对外接口 ====================
 
-def _get_public_client():
-    """获取使用 public_endpoint 的 S3 client
 
-    用于生成预签名 URL 时，签名中包含正确的公网 Host 头。
-    如果未配置 public_endpoint，返回默认 client。
-    """
+def _get_public_client():
+    """获取使用 public_endpoint 的 S3 client（用于预签名 URL）"""
     config = get_storage_config()
     public_ep = config.get('public_endpoint', '').strip()
     if not public_ep:
@@ -163,35 +179,19 @@ def _get_public_client():
 
 
 def get_presigned_upload_url(object_name, expires=300):
-    """生成预签名上传 URL
-
-    如果配置了 public_endpoint，签名将基于公网地址生成，
-    确保浏览器直传时签名验证通过。
-
-    Args:
-        object_name: 对象路径（如 images/product/202406/xxx.jpg）
-        expires: URL 有效期（秒）
-
-    Returns:
-        str: 预签名 PUT URL
-    """
+    """生成预签名上传 URL"""
     client, config = _get_public_client()
     bucket = config.get('bucket_name', '')
-    url = client.generate_presigned_url(
+    return client.generate_presigned_url(
         'put_object',
         Params={'Bucket': bucket, 'Key': object_name},
         ExpiresIn=expires,
         HttpMethod='PUT',
     )
-    return url
 
 
 def get_public_url(object_name):
-    """获取对象公网访问 URL
-
-    优先使用 public_endpoint，否则用 endpoint 拼接。
-    注意：此 URL 不含签名，适用于公开读的 bucket。
-    """
+    """获取对象公网访问 URL"""
     _, config = get_client()
     bucket = config.get('bucket_name', '')
     public_ep = config.get('public_endpoint', '').strip().rstrip('/')
@@ -199,34 +199,25 @@ def get_public_url(object_name):
     if public_ep:
         return "{}/{}/{}".format(public_ep, bucket, object_name)
 
-    # 回退：用 endpoint 拼接
     ep = config.get('endpoint', '').strip().rstrip('/')
     if ep:
         if not ep.startswith('http'):
             ep = 'http://' + ep
         return "{}/{}/{}".format(ep, bucket, object_name)
 
-    # 最后的回退：AWS 默认格式
     region = config.get('region', 'us-east-1')
     return "https://{}.s3.{}.amazonaws.com/{}".format(bucket, region, object_name)
 
 
 def get_relative_url(object_name):
-    """获取对象相对路径（不含域名，用于存储到数据库）
-
-    Returns:
-        str: 如 /mall-images1/images/product/202606/xxx.jpg
-    """
+    """获取对象相对路径（不含域名，用于存储到数据库）"""
     _, config = get_client()
     bucket = config.get('bucket_name', '')
     return "/{}/{}".format(bucket, object_name)
 
 
 def get_image_display_url(path):
-    """将相对路径转为完整公网 URL（用于 API 返回给前端展示）
-
-    如果 path 已经是完整 URL 则原样返回。
-    """
+    """将相对路径转为完整公网 URL"""
     if not path:
         return path
     if path.startswith('http://') or path.startswith('https://'):
@@ -242,27 +233,15 @@ def get_image_display_url(path):
 
 
 def get_presigned_download_url(object_name, expires=3600):
-    """生成预签名下载 URL（带签名的 GET URL）
-
-    用于 bucket 为私有读时，生成带签名的临时访问链接供前端显示图片。
-    如果配置了 public_endpoint，签名将基于公网地址生成。
-
-    Args:
-        object_name: 对象路径（如 images/product/202406/xxx.jpg）
-        expires: URL 有效期（秒），默认 3600
-
-    Returns:
-        str: 预签名 GET URL
-    """
+    """生成预签名下载 URL"""
     client, config = _get_public_client()
     bucket = config.get('bucket_name', '')
-    url = client.generate_presigned_url(
+    return client.generate_presigned_url(
         'get_object',
         Params={'Bucket': bucket, 'Key': object_name},
         ExpiresIn=expires,
         HttpMethod='GET',
     )
-    return url
 
 
 def delete_object(object_name):
@@ -277,16 +256,7 @@ def delete_object(object_name):
 
 
 def upload_file(object_name, file_path_or_data, content_type=None):
-    """服务端直接上传文件
-
-    Args:
-        object_name: 对象路径
-        file_path_or_data: 文件路径(str) 或 二进制数据(bytes)
-        content_type: MIME 类型
-
-    Returns:
-        str: 公网 URL
-    """
+    """服务端直接上传文件"""
     client, config = get_client()
     bucket = config.get('bucket_name', '')
 
