@@ -46,14 +46,14 @@ def get_storage_config():
     except Exception as e:
         LOG.warning("从数据库加载存储配置失败: {}".format(e))
 
-    # 返回默认值
+    # 数据库无配置时返回空（首次使用需手动填）
     return {
-        "endpoint": "http://82.156.225.136:9000",
-        "access_key": "admin",
-        "secret_key": "password123",
+        "endpoint": "",
+        "access_key": "",
+        "secret_key": "",
         "bucket_name": "mall-images1",
         "region": "us-east-1",
-        "public_endpoint": "http://82.156.225.136:9000",
+        "public_endpoint": "",
     }
 
 
@@ -286,10 +286,24 @@ def object_exists(object_name):
 
 
 def test_connection():
-    """测试连接是否正常"""
+    """用当前已保存的配置测试连接"""
     try:
         client, _ = get_client()
         client.list_buckets()
         return True
     except (ClientError, BotoCoreError):
         return False
+
+
+def test_connection_with_config(config):
+    """用指定参数测试连接（不保存，不修改缓存）
+
+    Args:
+        config: dict，包含 endpoint/access_key/secret_key/region
+    """
+    try:
+        client = _build_s3_client(config)
+        result = client.list_buckets()
+        return True, None
+    except Exception as e:
+        return False, str(e)

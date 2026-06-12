@@ -6,7 +6,7 @@ from flask_restx import Namespace, Resource
 from oslo_log import log as logging
 
 from mall.common.common import admin_required, deco_catch_view_exception
-from mall.db.engines.s3 import test_connection
+from mall.db.engines.s3 import test_connection_with_config
 from mall.service import s3_config_service
 
 LOG = logging.getLogger(__name__)
@@ -47,8 +47,9 @@ class StorageTest(Resource):
     @admin_required
     @deco_catch_view_exception("测试存储连接")
     def post(self):
-        ok = test_connection()
+        data = json.loads(request.data) if request.data else {}
+        ok, err = test_connection_with_config(data)
         if ok:
             return {"success": True, "message": "连接成功"}
         else:
-            return {"success": False, "message": "连接失败", "data": {}}
+            return {"success": False, "message": "连接失败: " + (err or "未知错误")}
