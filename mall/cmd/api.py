@@ -22,7 +22,7 @@ def main():
 
     # 自动初始化数据库（建表 + 种子数据）
     from mall.db.init_db import init_all
-    init_all()
+    #init_all()
 
     app.run(host=CONF.api_mall_listen, port=CONF.api_mall_listen_port, threaded=True)
 
