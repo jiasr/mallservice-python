@@ -354,8 +354,7 @@ class AdminUserDao:
                 bucket_name="mall-images1",
                 region="us-east-1",
                 public_endpoint="http://82.156.225.136:9000",
-                upload_max_size=10,
-                upload_allowed_types="jpg,jpeg,png,gif,webp,bmp",
+                
             )
             session.add(config)
             LOG.info("已初始化对象存储默认配置")

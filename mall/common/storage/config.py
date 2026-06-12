@@ -18,8 +18,6 @@ def get_storage_config():
             bucket_name: str,
             region: str,
             public_endpoint: str,
-            upload_max_size: int,
-            upload_allowed_types: str,
         }
     """
     try:
@@ -38,8 +36,6 @@ def get_storage_config():
                 "bucket_name": config.bucket_name or "",
                 "region": config.region or "us-east-1",
                 "public_endpoint": config.public_endpoint or "",
-                "upload_max_size": config.upload_max_size or 10,
-                "upload_allowed_types": config.upload_allowed_types or "jpg,jpeg,png,gif,webp,bmp",
             }
     except Exception as e:
         LOG.warning("从数据库加载存储配置失败: {}".format(e))
@@ -52,6 +48,4 @@ def get_storage_config():
         "bucket_name": "mall-images1",
         "region": "us-east-1",
         "public_endpoint": "http://82.156.225.136:9000",
-        "upload_max_size": 10,
-        "upload_allowed_types": "jpg,jpeg,png,gif,webp,bmp",
     }

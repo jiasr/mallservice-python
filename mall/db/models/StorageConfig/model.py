@@ -15,7 +15,5 @@ class StorageConfig(BASE, DbBase):
     bucket_name = Column(String(128), default='mall-images1', comment='Bucket 名称')
     region = Column(String(64), default='us-east-1', comment='地域')
     public_endpoint = Column(String(512), default='http://82.156.225.136:9000', comment='公网访问地址')
-    upload_max_size = Column(Integer, default=10, comment='上传文件最大大小（MB）')
-    upload_allowed_types = Column(String(512), default='jpg,jpeg,png,gif,webp,bmp', comment='允许上传的文件类型')
     create_time = Column(DateTime, default=datetime.now)
     update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)

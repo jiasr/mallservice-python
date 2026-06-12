@@ -97,8 +97,6 @@ def get_storage_settings():
                     "bucket_name": config.bucket_name or "",
                     "region": config.region or "",
                     "public_endpoint": config.public_endpoint or "",
-                    "upload_max_size": config.upload_max_size or 10,
-                    "upload_allowed_types": config.upload_allowed_types or "",
                 }
             return {}
     except Exception as e:
@@ -110,7 +108,7 @@ def save_storage_settings(data):
     """保存对象存储配置
 
     Args:
-        data: dict 包含 endpoint/access_key/secret_key/bucket_name/region/public_endpoint/upload_max_size/upload_allowed_types
+        data: dict 包含 endpoint/access_key/secret_key/bucket_name/region/public_endpoint
     """
     session = get_session()
     try:
@@ -121,7 +119,7 @@ def save_storage_settings(data):
                 session.add(config)
 
             for field in ("endpoint", "access_key", "secret_key", "bucket_name",
-                          "region", "public_endpoint", "upload_max_size", "upload_allowed_types"):
+                          "region", "public_endpoint"):
                 if field in data:
                     setattr(config, field, data[field])
 
