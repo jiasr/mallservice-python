@@ -7,6 +7,7 @@ from oslo_log import log as logging
 
 from mall.common.common import admin_required, deco_catch_view_exception
 from mall.service import setting_service
+from mall.service import storage_config_service
 
 LOG = logging.getLogger(__name__)
 
@@ -26,7 +27,6 @@ class SettingGet(Resource):
         return setting_service.get_all_settings()
 
     def get(self):
-        """兼容 GET 请求"""
         return self.post()
 
 
@@ -51,10 +51,9 @@ class StorageGet(Resource):
     @admin_required
     @deco_catch_view_exception("获取存储配置")
     def post(self):
-        return setting_service.get_storage_settings()
+        return storage_config_service.get_storage_config()
 
     def get(self):
-        """兼容 GET 请求"""
         return self.post()
 
 
@@ -66,5 +65,5 @@ class StorageSave(Resource):
     @deco_catch_view_exception("保存存储配置")
     def post(self):
         data = json.loads(request.data)
-        success = setting_service.save_storage_settings(data)
+        success = storage_config_service.save_storage_config(data)
         return {"success": success}
