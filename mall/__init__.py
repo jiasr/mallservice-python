@@ -15,6 +15,7 @@ from mall.view.router_good import app_goods,ns_goods
 from mall.view.router_admin import app_admin,ns_admin
 from mall.view.router_upload import app_upload,ns_upload
 from mall.view.router_setting import app_setting,ns_setting
+from mall.view.router_storage import app_storage,ns_storage
 
 
 LOG = logging.getLogger(__name__)
@@ -71,6 +72,7 @@ app.register_blueprint(app_goods, url_prefix="/v1/goods")
 app.register_blueprint(app_admin, url_prefix="/v1/admin")
 app.register_blueprint(app_upload, url_prefix="/v1/upload")
 app.register_blueprint(app_setting, url_prefix="/v1/admin")
+app.register_blueprint(app_storage, url_prefix="/v1/admin")
 
 
 api.add_namespace(ns_user)
@@ -80,5 +82,6 @@ api.add_namespace(ns_goods)
 api.add_namespace(ns_admin)
 api.add_namespace(ns_upload)
 api.add_namespace(ns_setting)
+api.add_namespace(ns_storage)
 
 

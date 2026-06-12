@@ -7,15 +7,12 @@ from oslo_log import log as logging
 
 from mall.common.common import admin_required, deco_catch_view_exception
 from mall.service import setting_service
-from mall.service import storage_config_service
 
 LOG = logging.getLogger(__name__)
 
 app_setting = Blueprint('setting', __name__)
 ns_setting = Namespace("setting", description="setting ", path="/v1/admin")
 
-
-# ==================== 通用系统配置 ====================
 
 @ns_setting.route('/setting/get', methods=['POST', 'GET'])
 class SettingGet(Resource):
@@ -39,31 +36,4 @@ class SettingSave(Resource):
     def post(self):
         data = json.loads(request.data)
         success = setting_service.save_settings(data)
-        return {"success": success}
-
-
-# ==================== 对象存储配置（独立表） ====================
-
-@ns_setting.route('/storage/get', methods=['POST', 'GET'])
-class StorageGet(Resource):
-    """获取对象存储配置"""
-
-    @admin_required
-    @deco_catch_view_exception("获取存储配置")
-    def post(self):
-        return storage_config_service.get_storage_config()
-
-    def get(self):
-        return self.post()
-
-
-@ns_setting.route('/storage/save', methods=['POST'])
-class StorageSave(Resource):
-    """保存对象存储配置"""
-
-    @admin_required
-    @deco_catch_view_exception("保存存储配置")
-    def post(self):
-        data = json.loads(request.data)
-        success = storage_config_service.save_storage_config(data)
         return {"success": success}
