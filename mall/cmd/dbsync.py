@@ -1,15 +1,24 @@
 import os
 from oslo_config import cfg
-import  json
+import json
 from sqlalchemy import create_engine
 from mall.db.models.base import BASE
+from mall.db.engines.mysql import get_session, get_engine
+from mall.db.models.User.model import User, UserAddress
+from mall.db.models.GoodsCatalog.model import GoodsCatalog
+from mall.db.models.Goods.model import GoodsSpu, GoodsSku, GoodsSpec
+from mall.db.models.Admin.model import AdminUser, AdminRole, AdminMenu, AdminRoleMenu
+from mall.db.models.SystemConfig.model import SystemConfig
+from mall.db.models.StorageConfig.model import StorageConfig
+from mall.db.models.Region.model import Region
+from mall.db.models.Admin.adminsql import AdminUserDao
 from oslo_log import log as logging
-from mall.db.engines.mysql import get_session
 import uuid
 
 LOG = logging.getLogger(__name__)
 CONF_FILE_PATH = os.path.join('../../etc/mall', "mall.conf")
 CONF = cfg.CONF
+
 
 def load_config():
     print(CONF_FILE_PATH)
@@ -17,18 +26,7 @@ def load_config():
     CONF.log_opt_values(LOG, logging.INFO)
 
 
-
 def table_sync():
-    from mall.db.engines.mysql import get_engine
-    from mall.db.models.base import BASE
-    from mall.db.models.User.model import User,UserAddress
-    from mall.db.models.GoodsCatalog.model import GoodsCatalog
-    from mall.db.models.Goods.model import GoodsSpu, GoodsSku,GoodsSpec
-    from mall.db.models.Admin.model import AdminUser, AdminRole, AdminMenu, AdminRoleMenu
-    from mall.db.models.SystemConfig.model import SystemConfig
-    from mall.db.models.StorageConfig.model import StorageConfig
-    from mall.db.models.Region.model import Region
-
     tables = [
         BASE.metadata.tables["t_mall_user"],
         BASE.metadata.tables["t_mall_user_address"],
@@ -45,6 +43,7 @@ def table_sync():
         BASE.metadata.tables["regions"],
     ]
     BASE.metadata.create_all(get_engine(), tables=tables, checkfirst=True)
+
 
 def init_area():
     """初始化省市区数据（如果 regions 表不存在则跳过）"""
@@ -85,10 +84,8 @@ def init_area():
         LOG.warning("初始化省市区数据失败（regions 表可能不存在）: {}".format(e))
 
 
-
 def init_admin_data():
     """初始化 Admin 默认数据（菜单、角色、管理员账号）"""
-    from mall.db.models.Admin.adminsql import AdminUserDao
     AdminUserDao.init_all_default_data()
 
 
@@ -97,7 +94,6 @@ def main():
     table_sync()
     init_area()
     init_admin_data()
-
 
 
 if __name__ == "__main__":

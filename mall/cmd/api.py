@@ -2,6 +2,7 @@ import os
 from oslo_log import log as logging
 from mall import app
 from mall.conf import CONF
+from mall.db.init_db import init_all
 
 
 LOG = logging.getLogger(__name__)
@@ -21,7 +22,6 @@ def main():
     load_config()
 
     # 自动初始化数据库（建表 + 种子数据）
-    from mall.db.init_db import init_all
     #init_all()
 
     app.run(host=CONF.api_mall_listen, port=CONF.api_mall_listen_port, threaded=True)

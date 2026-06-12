@@ -3,6 +3,8 @@
 从数据库 StorageConfig 独立表读取对象存储配置。
 """
 from oslo_log import log as logging
+from mall.db.engines.mysql import get_session
+from mall.db.models.StorageConfig.model import StorageConfig
 
 LOG = logging.getLogger(__name__)
 
@@ -21,9 +23,6 @@ def get_storage_config():
         }
     """
     try:
-        from mall.db.engines.mysql import get_session
-        from mall.db.models.StorageConfig.model import StorageConfig
-
         session = get_session()
         with session.begin():
             config = session.query(StorageConfig).first()

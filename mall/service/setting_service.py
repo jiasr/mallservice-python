@@ -4,6 +4,7 @@ import json
 from mall.db.engines.mysql import get_session
 from mall.db.models.SystemConfig.model import SystemConfig
 from mall.db.models.StorageConfig.model import StorageConfig
+from mall.common.storage.base import reset_client
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
@@ -124,7 +125,6 @@ def save_storage_settings(data):
                     setattr(config, field, data[field])
 
         # 重置 S3 client 单例
-        from mall.common.storage.base import reset_client
         reset_client()
 
         LOG.info("存储配置保存成功")

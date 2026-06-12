@@ -12,6 +12,17 @@ import uuid
 from oslo_log import log as logging
 from mall.db.models.base import BASE
 from mall.db.engines.mysql import get_engine, get_session
+from mall.db.models.Admin.adminsql import AdminUserDao
+
+# 导入所有模型，确保它们注册到 BASE.metadata
+from mall.db.models.User import model as _m_user  # noqa
+from mall.db.models.GoodsCatalog import model as _m_catalog  # noqa
+from mall.db.models.Goods import model as _m_goods  # noqa
+from mall.db.models.Admin import model as _m_admin  # noqa
+from mall.db.models.SystemConfig import model as _m_syscfg  # noqa
+from mall.db.models.StorageConfig import model as _m_storage  # noqa
+from mall.db.models.Region import model as _m_region  # noqa
+from mall.db.models.Task import model as _m_task  # noqa
 
 LOG = logging.getLogger(__name__)
 
@@ -37,36 +48,21 @@ _TABLE_CREATE_ORDER = [
 ]
 
 
-def _import_models():
-    """导入所有模型，确保它们注册到 BASE.metadata"""
-    from mall.db.models.User import model as _
-    from mall.db.models.GoodsCatalog import model as _
-    from mall.db.models.Goods import model as _
-    from mall.db.models.Admin import model as _
-    from mall.db.models.SystemConfig import model as _
-    from mall.db.models.StorageConfig import model as _
-    from mall.db.models.Region import model as _
-    from mall.db.models.Task import model as _  # noqa
-
-
 def drop_and_create_tables():
     """删除所有表（保留 regions）并重新创建"""
     engine = get_engine()
 
-    # 获取所有已注册的表名
     all_tables = set(BASE.metadata.tables.keys())
     tables_to_drop = all_tables - _KEEP_TABLES
 
     LOG.info("准备删除以下表: {}".format(sorted(tables_to_drop)))
     LOG.info("保留表: {}".format(sorted(_KEEP_TABLES & all_tables)))
 
-    # 删除所有非保留表
     if tables_to_drop:
         drop_list = [BASE.metadata.tables[t] for t in tables_to_drop]
         BASE.metadata.drop_all(engine, tables=drop_list)
         LOG.info("已删除 {} 个表".format(len(tables_to_drop)))
 
-    # 按顺序创建表
     for table_name in _TABLE_CREATE_ORDER:
         if table_name in BASE.metadata.tables:
             table = BASE.metadata.tables[table_name]
@@ -80,7 +76,7 @@ def drop_and_create_tables():
 
 
 def init_area():
-    """初始化省市区数据（如果 regions 表为空）"""
+    """初始化省市区数据"""
     session = get_session()
     try:
         with session.begin():
@@ -90,7 +86,6 @@ def init_area():
                 LOG.info("regions 表已有 {} 条数据，跳过初始化".format(count))
                 return
 
-            # area.json 相对于项目根目录
             area_file = os.path.join(
                 os.path.dirname(__file__), '..', 'cmd', 'area.json'
             )
@@ -151,9 +146,6 @@ def init_area():
 
 def init_admin_data():
     """初始化 Admin 默认数据（菜单、角色、管理员账号）"""
-    from mall.db.models.Admin.adminsql import AdminUserDao
-
-    # 这些方法内部有 isEmpty 检查，不会重复插入
     AdminUserDao.create_default_menus()
     AdminUserDao.create_default_role()
     AdminUserDao.create_default_role_menus()
@@ -166,7 +158,6 @@ def init_admin_data():
 def init_all():
     """执行所有初始化步骤"""
     LOG.info("========== 开始数据库初始化 ==========")
-    _import_models()
     drop_and_create_tables()
     init_area()
     init_admin_data()

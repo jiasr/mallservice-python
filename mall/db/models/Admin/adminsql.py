@@ -6,6 +6,8 @@ from mall.db.engines.mysql import get_session, get_engine
 from mall.db.models.Admin.model import (
     AdminUser, AdminRole, AdminMenu, AdminRoleMenu
 )
+from mall.db.models.SystemConfig.model import SystemConfig
+from mall.db.models.StorageConfig.model import StorageConfig
 from mall.db.models.base import BASE
 from oslo_log import log as logging
 
@@ -305,8 +307,6 @@ class AdminUserDao:
     @classmethod
     def _init_system_config(cls):
         """初始化系统配置表及默认配置"""
-        from mall.db.models.SystemConfig.model import SystemConfig
-
         if not cls._table_is_empty(SystemConfig):
             LOG.info("SystemConfig 表已有数据，跳过初始化")
             return
@@ -339,8 +339,6 @@ class AdminUserDao:
     @classmethod
     def _init_storage_config(cls):
         """初始化对象存储配置（独立表）"""
-        from mall.db.models.StorageConfig.model import StorageConfig
-
         if not cls._table_is_empty(StorageConfig):
             LOG.info("StorageConfig 表已有数据，跳过初始化")
             return

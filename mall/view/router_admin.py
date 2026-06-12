@@ -6,6 +6,7 @@ from flask_restx import Namespace, Resource, fields
 from oslo_log import log as logging
 
 from mall.common.common import admin_required, deco_catch_view_exception
+from mall.common.jwt_utils import verify_token
 from mall.service import admin_service, admin_role_service
 
 LOG = logging.getLogger(__name__)
@@ -36,7 +37,6 @@ class AdminGetInfo(Resource):
         if token and token.startswith("Bearer "):
             token = token[7:]
 
-        from mall.common.jwt_utils import verify_token
         payload = verify_token(token)
         if payload is None:
             return {"flag": False, "errCode": 401, "errMessage": "登录已过期", "resData": None}

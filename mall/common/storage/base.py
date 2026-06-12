@@ -11,12 +11,15 @@
 只需配置 Endpoint + AccessKey + SecretKey + Bucket 即可。
 """
 import json
+from io import BytesIO
 from datetime import timedelta
 
 import boto3
 from botocore.exceptions import ClientError, BotoCoreError
 from botocore.config import Config as BotoConfig
 from oslo_log import log as logging
+
+from mall.common.storage.config import get_storage_config
 
 LOG = logging.getLogger(__name__)
 
@@ -120,7 +123,6 @@ def get_client():
     """
     global _client, _config_hash
 
-    from mall.common.storage.config import get_storage_config
     config = get_storage_config()
     new_hash = str(sorted(config.items()))
 
@@ -149,7 +151,6 @@ def _get_public_client():
     用于生成预签名 URL 时，签名中包含正确的公网 Host 头。
     如果未配置 public_endpoint，返回默认 client。
     """
-    from mall.common.storage.config import get_storage_config
     config = get_storage_config()
     public_ep = config.get('public_endpoint', '').strip()
     if not public_ep:
@@ -286,8 +287,6 @@ def upload_file(object_name, file_path_or_data, content_type=None):
     Returns:
         str: 公网 URL
     """
-    from io import BytesIO
-
     client, config = get_client()
     bucket = config.get('bucket_name', '')
 

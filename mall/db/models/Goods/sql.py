@@ -10,6 +10,7 @@ from mall.db.models.Goods.model import (
     GoodsSpu, GoodsSku,GoodsSpec
 )
 from mall.common.constant import SETTING_LIST_DEFAILT_PAGESIZE
+from mall.common.storage.base import get_image_display_url
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
@@ -21,7 +22,6 @@ class GoodsSpuDao:
     @staticmethod
     def _img_url(path):
         """将相对路径转为完整公网 URL"""
-        from mall.common.storage.base import get_image_display_url
         return get_image_display_url(path)
 
     @classmethod
