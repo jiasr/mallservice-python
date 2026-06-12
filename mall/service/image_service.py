@@ -7,11 +7,11 @@ LOG = logging.getLogger(__name__)
 
 # 场景到存储路径的映射
 SCENE_PREFIX_MAP = {
-    "product": "images/product",       # 商品图片
+    "product": "images/goods",         # 商品图片
+    "editor": "images/goods",          # 富文本编辑器图片
+    "avatar": "images/goods",          # 头像
+    "banner": "images/goods",          # Banner
     "system": "images/system",         # 系统图片（Logo 等）
-    "avatar": "images/avatar",         # 头像
-    "banner": "images/banner",         # Banner
-    "editor": "images/editor",         # 富文本编辑器
 }
 
 
@@ -95,30 +95,59 @@ def delete_image(object_name):
 def upload_file(scene, file_data, filename):
     """服务端直接上传文件到存储（代理上传，不依赖浏览器直传）
 
+    对于 system 场景（Logo），上传后自动删除旧文件。
+
     Args:
         scene: 场景标识（product/system/avatar/banner/editor）
         file_data: 文件二进制数据 (bytes)
         filename: 原始文件名
 
     Returns:
-        dict: {"object_name": str, "public_url": str}  public_url 为相对路径
+        dict: {"object_name": str, "public_url": str}
     """
     prefix = SCENE_PREFIX_MAP.get(scene, "images/other")
     obj_name = generate_object_name(prefix, filename)
 
-    # 根据后缀确定 Content-Type
+    # 如果是 Logo 更新，先查出旧图 key
+    old_key = None
+    if scene == 'system':
+        try:
+            from mall.db.models.SystemConfig.model import SystemConfig
+            from mall.db.engines.mysql import get_session
+            session = get_session()
+            with session.begin():
+                cfg = session.query(SystemConfig).filter(
+                    SystemConfig.config_key == 'logo'
+                ).first()
+                if cfg and cfg.config_value:
+                    val = cfg.config_value
+                    # 相对路径格式: /mall-images1/images/system/xxx.jpg
+                    # 提取 object key: images/system/xxx.jpg
+                    if val.startswith('/'):
+                        parts = val.split('/', 2)
+                        if len(parts) > 2:
+                            old_key = parts[2]
+        except Exception:
+            pass
+
+    # 上传新文件
     ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
     content_type = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'gif': 'image/gif',
-        'webp': 'image/webp',
-        'bmp': 'image/bmp',
+        'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+        'png': 'image/png', 'gif': 'image/gif',
+        'webp': 'image/webp', 'bmp': 'image/bmp',
     }.get(ext, 'application/octet-stream')
 
     s3.upload_file(obj_name, file_data, content_type)
-    # 返回相对 URL（存储到数据库不包含域名）
+
+    # 删除旧 Logo
+    if old_key:
+        try:
+            s3.delete_object(old_key)
+            LOG.info("已删除旧 Logo: {}".format(old_key))
+        except Exception:
+            pass
+
     relative_url = s3.get_relative_url(obj_name)
     return {
         "object_name": obj_name,
