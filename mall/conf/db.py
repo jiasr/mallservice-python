@@ -1,11 +1,6 @@
-from oslo_config import cfg
 from oslo_db import options
-
-db_driver_opt = cfg.StrOpt('db_driver',
-                           default='venus.db',
-                           help='Driver to use for database access')
 
 
 def register_opts(conf):
-    options.set_defaults(conf, connection='sqlite:///$state_path/venus.sqlite')
-    conf.register_opt(db_driver_opt)
+    # 注册 [database] 组选项（connection 等），连接串由 mall.conf 实际配置
+    options.set_defaults(conf)

@@ -11,7 +11,7 @@ LOG = logging.getLogger(__name__)
 
 CONF = cfg.CONF
 
-options.set_defaults(CONF, connection=r"sqlite:///test.db")
+options.set_defaults(CONF)
 
 _LOCK = threading.Lock()
 _FACADE = None
