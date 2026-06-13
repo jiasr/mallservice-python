@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import func, or_, and_
 from mall.db.engines.mysql import get_session
 from mall.db.models.Goods.model import (
-    GoodsSpu, GoodsSku,GoodsSpec
+    GoodsSpu, GoodsSku, GoodsSpec
 )
 from mall.db.models.GoodsCatalog.model import GoodsCatalog
 from mall.common.constant import SETTING_LIST_DEFAILT_PAGESIZE
@@ -15,6 +15,18 @@ from mall.db.engines.s3 import get_image_display_url
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
+
+
+def _safe_json_loads(val, default=None):
+    """安全解析 JSON 字符串"""
+    if default is None:
+        default = []
+    if not val or not str(val).strip():
+        return default
+    try:
+        return json.loads(val)
+    except (json.JSONDecodeError, TypeError):
+        return default
 
 
 def _get_child_category_ids(session, parent_id):
@@ -102,7 +114,20 @@ class GoodsSpuDao:
 
             spu_list = []
             for spu in spus:
-                tags = json.loads(spu.tags) if spu.tags else []
+                tags = _safe_json_loads(spu.tags)
+                # 轻量 SKU 列表，支持直接加购
+                skus = session.query(GoodsSku).filter(GoodsSku.spu_id == spu.id).all()
+                sku_list = []
+                for sku in skus:
+                    spec_info = _safe_json_loads(sku.spec_info)
+                    sku_list.append({
+                        "skuId": sku.sku_id,
+                        "specInfo": spec_info,
+                        "price": sku.price,
+                        "linePrice": sku.line_price,
+                        "stock": sku.stock_quantity,
+                        "thumb": cls._img_url(sku.sku_image) if sku.sku_image else "",
+                    })
                 spu_list.append({
                     "spuId": spu.spu_id,
                     "thumb": cls._img_url(spu.primary_image),
@@ -111,6 +136,7 @@ class GoodsSpuDao:
                     "originPrice": spu.max_line_price,
                     "tags": [t.get("title", t) if isinstance(t, dict) else t for t in tags],
                     "desc": "",
+                    "skuList": sku_list,
                 })
 
             return {
@@ -133,7 +159,7 @@ class GoodsSpuDao:
 
             result = []
             for spu in spus:
-                tags = json.loads(spu.tags) if spu.tags else []
+                tags = _safe_json_loads(spu.tags)
                 result.append({
                     "spuId": spu.spu_id,
                     "thumb": cls._img_url(spu.primary_image),
@@ -148,8 +174,8 @@ class GoodsSpuDao:
     def _format_spu_detail(cls, session, spu):
         """格式化SPU详情数据，匹配前端数据结构"""
         spec_list = []
-        for spec in spu.specs.all():
-            spec_values = json.loads(spec.spec_values) if spec.spec_values else []
+        for spec in session.query(GoodsSpec).filter(GoodsSpec.spu_id == spu.id).all():
+            spec_values = _safe_json_loads(spec.spec_values)
             spec_list.append({
                 "specId": spec.spec_id,
                 "title": spec.title,
@@ -157,8 +183,8 @@ class GoodsSpuDao:
             })
 
         sku_list = []
-        for sku in spu.skus.all():
-            spec_info = json.loads(sku.spec_info) if sku.spec_info else []
+        for sku in session.query(GoodsSku).filter(GoodsSku.spu_id == spu.id).all():
+            spec_info = _safe_json_loads(sku.spec_info)
             sku_list.append({
                 "skuId": sku.sku_id,
                 "skuImage": cls._img_url(sku.sku_image),
@@ -177,7 +203,7 @@ class GoodsSpuDao:
                 "profitPrice": None,
             })
 
-        tags = json.loads(spu.tags) if spu.tags else []
+        tags = _safe_json_loads(spu.tags)
         spu_tag_list = []
         for tag in tags:
             if isinstance(tag, dict):
@@ -185,10 +211,10 @@ class GoodsSpuDao:
             else:
                 spu_tag_list.append({"id": None, "title": tag, "image": None})
 
-        limit_info = json.loads(spu.limit_info) if spu.limit_info else None
+        limit_info = _safe_json_loads(getattr(spu, 'limit_info', None), None)
 
-        images_raw = json.loads(spu.images) if spu.images else []
-        desc_raw = json.loads(spu.desc) if spu.desc else []
+        images_raw = _safe_json_loads(spu.images)
+        desc_raw = _safe_json_loads(spu.desc)
 
         images = [cls._img_url(u) for u in images_raw]
         desc_images = [cls._img_url(u) for u in desc_raw]
