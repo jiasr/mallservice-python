@@ -149,9 +149,11 @@ def upload_file(scene, file_data, filename):
             pass
 
     relative_url = s3.get_relative_url(obj_name)
+    full_url = s3.get_image_display_url(relative_url)
     return {
         "object_name": obj_name,
-        "public_url": relative_url,
+        "public_url": full_url,
+        "relative_url": relative_url,
     }
 
 

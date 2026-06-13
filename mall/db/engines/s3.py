@@ -229,6 +229,9 @@ def get_image_display_url(path):
         public_ep = config.get('endpoint', '').strip().rstrip('/')
     if not public_ep.startswith('http'):
         public_ep = 'http://' + public_ep
+    # MinIO 9000 端口强制 HTTP（不支持 SSL）
+    if ':9000/' in public_ep or public_ep.endswith(':9000'):
+        public_ep = public_ep.replace('https://', 'http://')
     return "{}{}".format(public_ep, path)
 
 

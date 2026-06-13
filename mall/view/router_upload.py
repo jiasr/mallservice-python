@@ -5,7 +5,7 @@ from flask import Blueprint, request
 from flask_restx import Namespace, Resource
 from oslo_log import log as logging
 
-from mall.common.common import admin_required, deco_catch_view_exception
+from mall.common.common import admin_required, deco_catch_view_exception, result_ok
 from mall.service import image_service
 
 LOG = logging.getLogger(__name__)
@@ -63,10 +63,9 @@ class UploadFile(Resource):
     """服务端代理上传文件（不经过浏览器直传 MinIO）"""
 
     @admin_required
-    @deco_catch_view_exception("上传文件")
     def post(self):
         if 'file' not in request.files:
-            return {"success": False, "message": "没有上传文件"}
+            return result_ok({"success": False, "message": "没有上传文件"})
 
         file = request.files['file']
         scene = request.form.get('scene', 'product')
@@ -76,10 +75,10 @@ class UploadFile(Resource):
         # 检查文件大小（10MB）
         max_size = 10 * 1024 * 1024
         if len(file_data) > max_size:
-            return {"success": False, "message": "文件大小超过限制（10MB）"}
+            return result_ok({"success": False, "message": "文件大小超过限制（10MB）"})
 
         result = image_service.upload_file(scene, file_data, filename)
-        return {"success": True, "data": result}
+        return result_ok({"success": True, "data": result})
 
 
 

@@ -25,10 +25,8 @@ class GoodsSpu(BASE, SerializerMixin):
     is_available = Column(Integer, default=1, comment='是否可用 1是 0否')
 
 
-    primary_image = Column(String(500), comment='主图')
-    images = Column(Text, comment='轮播图(JSON数组)')
-    desc = Column(Text, comment='详情图(JSON数组)')
-    video = Column(String(500), comment='视频地址')
+    images = Column(Text, comment='商品图片/视频(JSON数组，第一张为主图)')
+    desc = Column(Text, comment='商品详情(富文本HTML)')
 
 
     sold_num = Column(Integer, default=0, comment='已售数量')

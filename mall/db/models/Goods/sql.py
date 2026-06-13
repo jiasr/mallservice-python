@@ -114,6 +114,7 @@ class GoodsSpuDao:
 
             spu_list = []
             for spu in spus:
+                imgs = _safe_json_loads(spu.images)
                 tags = _safe_json_loads(spu.tags)
                 # 轻量 SKU 列表，支持直接加购
                 skus = session.query(GoodsSku).filter(GoodsSku.spu_id == spu.id).all()
@@ -124,16 +125,14 @@ class GoodsSpuDao:
                         "skuId": sku.sku_id,
                         "specInfo": spec_info,
                         "price": sku.price,
-                        "linePrice": sku.line_price,
                         "stock": sku.stock_quantity,
                         "thumb": cls._img_url(sku.sku_image) if sku.sku_image else "",
                     })
                 spu_list.append({
                     "spuId": spu.spu_id,
-                    "thumb": cls._img_url(spu.primary_image),
+                    "thumb": cls._img_url(imgs[0]) if imgs else "",
                     "title": spu.title,
                     "price": spu.min_sale_price,
-                    "originPrice": spu.max_line_price,
                     "tags": [t.get("title", t) if isinstance(t, dict) else t for t in tags],
                     "desc": "",
                     "skuList": sku_list,
@@ -160,12 +159,13 @@ class GoodsSpuDao:
             result = []
             for spu in spus:
                 tags = _safe_json_loads(spu.tags)
+                tags = _safe_json_loads(spu.tags)
+                imgs = _safe_json_loads(spu.images)
                 result.append({
                     "spuId": spu.spu_id,
-                    "thumb": cls._img_url(spu.primary_image),
+                    "thumb": cls._img_url(imgs[0]) if imgs else "",
                     "title": spu.title,
                     "price": spu.min_sale_price,
-                    "originPrice": spu.max_line_price,
                     "tags": [t.get("title", t) if isinstance(t, dict) else t for t in tags],
                 })
             return result
@@ -191,7 +191,6 @@ class GoodsSpuDao:
                 "specInfo": spec_info,
                 "priceInfo": [
                     {"priceType": 1, "price": str(sku.price), "priceTypeName": "销售价格"},
-                    {"priceType": 2, "price": str(sku.line_price), "priceTypeName": "划线价格"},
                 ],
                 "stockInfo": {
                     "stockQuantity": sku.stock_quantity,
@@ -214,24 +213,22 @@ class GoodsSpuDao:
         limit_info = _safe_json_loads(getattr(spu, 'limit_info', None), None)
 
         images_raw = _safe_json_loads(spu.images)
-        desc_raw = _safe_json_loads(spu.desc)
-
         images = [cls._img_url(u) for u in images_raw]
-        desc_images = [cls._img_url(u) for u in desc_raw]
+        primary_img = images[0] if images else ""
+
+        # 商品详情描述（富文本HTML或纯文本）
+        detail_content = (spu.desc or '').strip()
 
         return {
             "saasId": "88888888",
             "storeId": spu.store_id or "1000",
             "spuId": spu.spu_id,
             "title": spu.title,
-            "primaryImage": spu.primary_image,
+            "primaryImage": primary_img,
             "images": images,
-            "video": spu.video,
             "available": spu.is_available,
             "minSalePrice": spu.min_sale_price,
-            "minLinePrice": spu.min_line_price,
             "maxSalePrice": spu.max_sale_price,
-            "maxLinePrice": spu.max_line_price,
             "spuStockQuantity": spu.stock_quantity,
             "soldNum": spu.sold_num,
             "isPutOnSale": spu.is_put_on_sale,
@@ -240,7 +237,8 @@ class GoodsSpuDao:
             "skuList": sku_list,
             "spuTagList": spu_tag_list,
             "limitInfo": limit_info,
-            "desc": desc_images,
+            "desc": [],
+            "detailContent": detail_content,
             "etitle": spu.etitle or "",
             "isSoldOut": spu.is_sold_out or False,
             "isAvailable": spu.is_available,
@@ -255,7 +253,9 @@ class GoodsSpuDao:
         session = get_session()
         with session.begin():
 
-            images = json.dumps(data.get("images", [])) if data.get("images") else "[]"
+            # 图片统一为 images[]，第一张作为主图
+            all_images = data.get("images", []) or []
+            images_json = json.dumps(all_images) if all_images else "[]"
             desc = data.get("detail", "")
             tags = json.dumps(data.get("tags", [])) if data.get("tags") else "[]"
             store_id = data.get("storeId", "")
@@ -266,9 +266,8 @@ class GoodsSpuDao:
                 spu_id = spu_id,
                 title=data.get("title", "").strip(),
                 etitle= data.get("etitle", ""),
-                primary_image=data.get("primaryImage", ""),#主图
-                images=images,#轮播
-                desc=desc,#详情图
+                images=images_json,#图片/视频(JSON数组)
+                desc=desc,#商品详情
 
                 category_id= data.get("categoryId", ""),
                 min_sale_price=0,
