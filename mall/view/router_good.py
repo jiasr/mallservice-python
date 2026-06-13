@@ -55,3 +55,32 @@ class AdminGoodsAdd(Resource):
     def post(self):
         data = json.loads(request.data)
         return goods_service.admin_goods_add(data)
+
+
+@ns_goods.route('/admin/goods/update/<id>', methods=['POST'])
+class AdminGoodsUpdate(Resource):
+    """更新商品"""
+    def post(self, id):
+        data = json.loads(request.data)
+        return goods_service.admin_goods_update(id, data)
+
+
+@ns_goods.route('/admin/goods/delete/<id>', methods=['POST'])
+class AdminGoodsDelete(Resource):
+    """删除商品"""
+    def post(self, id):
+        return goods_service.admin_goods_delete(id)
+
+
+@ns_goods.route('/admin/goods/putOnSale/<id>', methods=['POST'])
+class AdminGoodsPutOnSale(Resource):
+    """上架商品"""
+    def post(self, id):
+        return goods_service.admin_goods_put_on_sale(id)
+
+
+@ns_goods.route('/admin/goods/pullOffSale/<id>', methods=['POST'])
+class AdminGoodsPullOffSale(Resource):
+    """下架商品"""
+    def post(self, id):
+        return goods_service.admin_goods_pull_off_sale(id)

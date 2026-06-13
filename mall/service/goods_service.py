@@ -42,3 +42,23 @@ def admin_goods_add(data):
     if error:
         raise Fail("ADD_GOODS_FAIL", None, error)
     return result
+
+
+@deco_catch_view_exception("更新商品")
+def admin_goods_update(id, data):
+    return GoodsSpuDao.update_spu(id, data)
+
+
+@deco_catch_view_exception("删除商品")
+def admin_goods_delete(id):
+    return GoodsSpuDao.delete_spu(id)
+
+
+@deco_catch_view_exception("上架商品")
+def admin_goods_put_on_sale(id):
+    return GoodsSpuDao.put_on_sale(id)
+
+
+@deco_catch_view_exception("下架商品")
+def admin_goods_pull_off_sale(id):
+    return GoodsSpuDao.pull_off_sale(id)

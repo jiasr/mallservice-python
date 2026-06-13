@@ -346,3 +346,56 @@ class GoodsSpuDao:
             session.flush()
 
             return { "title": spu.title}, None
+
+    @classmethod
+    def update_spu(cls, id, data):
+        """更新商品"""
+        session = get_session()
+        with session.begin():
+            spu = session.query(GoodsSpu).filter(GoodsSpu.spu_id == id).first()
+            if not spu:
+                return {"success": False, "message": "商品不存在"}
+            spu.title = data.get("title", spu.title)
+            spu.etitle = data.get("etitle", spu.etitle)
+            spu.category_id = data.get("categoryId", spu.category_id)
+            spu.is_put_on_sale = data.get("isPutOnSale", spu.is_put_on_sale)
+            images = data.get("images", [])
+            if images:
+                spu.images = json.dumps(images)
+            spu.desc = data.get("detail", spu.desc)
+            tags = data.get("tags", [])
+            if tags:
+                spu.tags = json.dumps(tags)
+            return {"success": True}
+
+    @classmethod
+    def delete_spu(cls, id):
+        """删除商品"""
+        session = get_session()
+        with session.begin():
+            session.query(GoodsSku).filter(GoodsSku.spu_id == id).delete()
+            session.query(GoodsSpec).filter(GoodsSpec.spu_id == id).delete()
+            spu = session.query(GoodsSpu).filter(GoodsSpu.spu_id == id).first()
+            if spu:
+                session.delete(spu)
+        return {"success": True}
+
+    @classmethod
+    def put_on_sale(cls, id):
+        """上架"""
+        session = get_session()
+        with session.begin():
+            spu = session.query(GoodsSpu).filter(GoodsSpu.spu_id == id).first()
+            if spu:
+                spu.is_put_on_sale = 1
+        return {"success": True}
+
+    @classmethod
+    def pull_off_sale(cls, id):
+        """下架"""
+        session = get_session()
+        with session.begin():
+            spu = session.query(GoodsSpu).filter(GoodsSpu.spu_id == id).first()
+            if spu:
+                spu.is_put_on_sale = 0
+        return {"success": True}
