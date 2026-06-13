@@ -109,6 +109,7 @@ def build_tree(flat_list, id_field="id", parent_field="parentId", children_field
             "name": _val(item, "name"),
             "level": _val(item, "level"),
             "parentId": str(pid),
+            "thumbnail": _val(item, "thumbnail") or "",
             "createtime":str(item.create_time),
             "sort":_val(item, "sort_order"),
             children_field: [],

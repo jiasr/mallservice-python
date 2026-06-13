@@ -9,11 +9,23 @@ from mall.db.engines.mysql import get_session
 from mall.db.models.Goods.model import (
     GoodsSpu, GoodsSku,GoodsSpec
 )
+from mall.db.models.GoodsCatalog.model import GoodsCatalog
 from mall.common.constant import SETTING_LIST_DEFAILT_PAGESIZE
 from mall.db.engines.s3 import get_image_display_url
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
+
+
+def _get_child_category_ids(session, parent_id):
+    """递归获取某个分类的所有子孙分类 ID（包含自身）"""
+    ids = [parent_id]
+    children = session.query(GoodsCatalog.id).filter(
+        GoodsCatalog.parentid == parent_id
+    ).all()
+    for (cid,) in children:
+        ids.extend(_get_child_category_ids(session, cid))
+    return ids
 
 
 class GoodsSpuDao:
@@ -66,8 +78,10 @@ class GoodsSpuDao:
                     )
                 )
 
+            # 级联分类：后端递归查找该分类及所有子孙分类 ID
             if category_id:
-                query = query.filter(GoodsSpu.category_id == category_id)
+                all_ids = _get_child_category_ids(session, category_id)
+                query = query.filter(GoodsSpu.category_id.in_(all_ids))
 
             if min_price is not None:
                 query = query.filter(GoodsSpu.min_sale_price >= int(min_price))
