@@ -48,6 +48,27 @@ class OrderDetail(Resource):
         return order_service.detail(user_id, order_id)
 
 
+@ns_order.route('/pay', methods=['POST'])
+class OrderPay(Resource):
+    """获取微信支付参数"""
+    @deco_catch_view_exception("获取支付参数")
+    def post(self):
+        user_id = _get_user_id()
+        if not user_id:
+            return {"success": False, "message": "请先登录"}
+        data = json.loads(request.data)
+        return order_service.pay(user_id, data)
+
+
+@ns_order.route('/pay/notify', methods=['POST'])
+class OrderPayNotify(Resource):
+    """微信支付回调通知"""
+    @deco_catch_view_exception("支付回调")
+    def post(self):
+        xml_str = request.data.decode('utf-8')
+        return order_service.pay_notify(xml_str)
+
+
 @ns_order.route('/cancel', methods=['POST'])
 class OrderCancel(Resource):
     @deco_catch_view_exception("取消订单")
