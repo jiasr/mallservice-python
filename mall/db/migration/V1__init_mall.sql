@@ -4,7 +4,7 @@
 -- ============================================
 
 CREATE DATABASE IF NOT EXISTS mall DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE mall;
+USE MALL;
 
 -- ============================================ 商品模块 ============================================
 

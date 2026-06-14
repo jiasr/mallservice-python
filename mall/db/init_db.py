@@ -44,6 +44,7 @@ _TABLE_CREATE_ORDER = [
     't_mall_goods_spec',
     't_mall_system_config',
     't_mall_storage_config',
+    't_mall_cart',
     't_mall_task',
 ]
 

@@ -16,6 +16,7 @@ from mall.view.router_admin import app_admin,ns_admin
 from mall.view.router_upload import app_upload,ns_upload
 from mall.view.router_setting import app_setting,ns_setting
 from mall.view.router_s3 import app_storage,ns_storage
+from mall.view.router_cart import app_cart,ns_cart
 
 
 LOG = logging.getLogger(__name__)
@@ -73,6 +74,9 @@ app.register_blueprint(app_admin, url_prefix="/v1/admin")
 app.register_blueprint(app_upload, url_prefix="/v1/upload")
 app.register_blueprint(app_setting, url_prefix="/v1/admin")
 app.register_blueprint(app_storage, url_prefix="/v1/admin")
+app.register_blueprint(app_cart, url_prefix="/v1/cart")
+
+
 
 
 api.add_namespace(ns_user)
@@ -83,5 +87,17 @@ api.add_namespace(ns_admin)
 api.add_namespace(ns_upload)
 api.add_namespace(ns_setting)
 api.add_namespace(ns_storage)
+api.add_namespace(ns_cart)
+
+# 启动时自动执行数据库迁移
+try:
+    from mall.cmd.dbsync import auto_migrate
+    auto_migrate()
+except Exception as e:
+    LOG.warning("数据库迁移失败: {}".format(e))
+
+
+
+
 
 

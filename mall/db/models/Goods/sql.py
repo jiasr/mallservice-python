@@ -149,6 +149,7 @@ class GoodsSpuDao:
         """获取简单商品列表"""
         session = get_session()
         with session.begin():
+            page_index = max(page_index, 1)
             start = (page_index - 1) * page_size
             spus = session.query(GoodsSpu).filter(
                 GoodsSpu.is_put_on_sale == 1,

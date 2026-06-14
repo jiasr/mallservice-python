@@ -11,6 +11,7 @@ from mall.db.models.Admin.model import AdminUser, AdminRole, AdminMenu, AdminRol
 from mall.db.models.SystemConfig.model import SystemConfig
 from mall.db.models.StorageConfig.model import StorageConfig
 from mall.db.models.Region.model import Region
+from mall.db.models.Cart.model import Cart
 from mall.db.models.Admin.adminsql import AdminUserDao
 from oslo_log import log as logging
 import uuid
@@ -40,6 +41,7 @@ def table_sync():
         BASE.metadata.tables["t_mall_admin_role_menu"],
         BASE.metadata.tables["t_mall_system_config"],
         BASE.metadata.tables["t_mall_storage_config"],
+        BASE.metadata.tables["t_mall_cart"],
         BASE.metadata.tables["regions"],
     ]
     BASE.metadata.create_all(get_engine(), tables=tables, checkfirst=True)
