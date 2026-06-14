@@ -151,8 +151,16 @@ class OrderDao:
                 ).delete()
 
         return {
-            'orderId': order_id,
-            'payAmount': total_amount,
+            'code': 'Success',
+            'data': {
+                'orderId': order_id,
+                'payAmount': total_amount,
+                'tradeNo': order_id,
+                'channel': '',
+                'payInfo': '',
+                'interactId': '',
+                'transactionId': '',
+            },
         }
 
     @classmethod
