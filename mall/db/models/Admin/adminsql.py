@@ -282,7 +282,7 @@ class AdminUserDao:
             user = AdminUser(
                 id=1,
                 username="admin",
-                password_hash=_hash_password("admin123"),
+                password_hash=_hash_password("password123"),
                 avatar="https://example.com/avatar.png",
                 role_id=1,
                 status=1,

@@ -86,7 +86,6 @@ class GoodsSpuDao:
                 query = query.filter(
                     or_(
                         GoodsSpu.title.like(f'%{keyword}%'),
-                        GoodsSpu.etitle.like(f'%{keyword}%'),
                     )
                 )
 
@@ -239,7 +238,6 @@ class GoodsSpuDao:
             "limitInfo": limit_info,
             "desc": [],
             "detailContent": detail_content,
-            "etitle": spu.etitle or "",
             "isSoldOut": spu.is_sold_out or False,
             "isAvailable": spu.is_available,
             "promotionList": None,
@@ -265,7 +263,6 @@ class GoodsSpuDao:
                 id = spu_id,
                 spu_id = spu_id,
                 title=data.get("title", "").strip(),
-                etitle= data.get("etitle", ""),
                 images=images_json,#图片/视频(JSON数组)
                 desc=desc,#商品详情
 
@@ -356,7 +353,6 @@ class GoodsSpuDao:
             if not spu:
                 return {"success": False, "message": "商品不存在"}
             spu.title = data.get("title", spu.title)
-            spu.etitle = data.get("etitle", spu.etitle)
             spu.category_id = data.get("categoryId", spu.category_id)
             spu.is_put_on_sale = data.get("isPutOnSale", spu.is_put_on_sale)
             images = data.get("images", [])

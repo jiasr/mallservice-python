@@ -18,7 +18,6 @@ class GoodsSpu(BASE, SerializerMixin):
     id = Column(String(255), primary_key=True,index=True,) # id
     spu_id = Column(String(255), nullable=False, default='', comment='SPU唯一标识')
     title = Column(String(500), nullable=False, comment='商品标题')
-    etitle = Column(String(500), default='', comment='英文标题')
 
     category_id = Column(String(255), comment='分类ID')
     is_put_on_sale = Column(Integer, default=1, comment='是否上架 1是 0否')
