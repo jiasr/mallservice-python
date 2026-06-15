@@ -14,9 +14,10 @@ class User(BASE,SerializerMixin):
     id = Column(String(255), primary_key=True,default=uuid.UUID)
     create_time = Column(DateTime,default=time.localtime(time.time()))
     name = Column(String(255))
+    avatar = Column(String(500), default='', comment='头像URL')
     wx_openid = Column(String(255),index=True)
-    wx_unionid = Column(String(255), index=True)  # 添加 unionid
-    wx_session_key = Column(String(255))  # 添加 session_key
+    wx_unionid = Column(String(255), index=True)
+    wx_session_key = Column(String(255))
 
 class UserAddress(BASE,SerializerMixin):
     __tablename__ = 't_mall_user_address'

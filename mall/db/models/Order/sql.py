@@ -32,6 +32,142 @@ def _generate_order_id(session):
 class OrderDao:
 
     @classmethod
+    def list(cls, user_id, page_num=1, page_size=10, order_status=None):
+        """获取订单列表"""
+        session = get_session()
+        with session.begin():
+            q = session.query(Order).filter(Order.user_id == user_id)
+            if order_status is not None and int(order_status) >= 0:
+                q = q.filter(Order.order_status == int(order_status))
+            total = q.count()
+            q = q.order_by(Order.create_time.desc()).limit(page_size).offset((page_num - 1) * page_size)
+            orders = q.all()
+            return {'data': {
+                'total': total,
+                'orders': [cls._format_order_list(o, session) for o in orders],
+            }}
+
+    @classmethod
+    def count_by_status(cls, user_id):
+        """获取各状态订单数量"""
+        session = get_session()
+        with session.begin():
+            total = session.query(Order).filter(Order.user_id == user_id).count()
+            pending_pay = session.query(Order).filter(Order.user_id == user_id, Order.order_status == 0).count()
+            pending_deliver = session.query(Order).filter(Order.user_id == user_id, Order.order_status == 1).count()
+            pending_receipt = session.query(Order).filter(Order.user_id == user_id, Order.order_status == 2).count()
+            complete = session.query(Order).filter(Order.user_id == user_id, Order.order_status == 3).count()
+            return {'data': [
+                {'text': '待付款', 'count': pending_pay},
+                {'text': '待发货', 'count': pending_deliver},
+                {'text': '待收货', 'count': pending_receipt},
+                {'text': '已完成', 'count': complete},
+            ]}
+
+    @classmethod
+    def _format_order_list(cls, order, session):
+        """格式化订单为前端需要的格式"""
+        items = session.query(OrderItem).filter(OrderItem.order_id == order.order_id).all()
+        return {
+            'orderId': order.order_id,
+            'orderNo': order.order_id,
+            'parentOrderNo': '',
+            'storeId': '1000',
+            'storeName': '',
+            'orderStatus': order.order_status,
+            'orderStatusName': cls._status_name(order.order_status),
+            'paymentAmount': order.pay_amount,
+            'totalAmount': order.total_amount,
+            'logisticsVO': {'logisticsNo': ''},
+            'createTime': order.create_time.strftime('%Y-%m-%d %H:%M:%S') if order.create_time else '',
+            'orderItemVOs': [{
+                'id': item.id,
+                'goodsPictureUrl': item.thumb,
+                'goodsName': item.title,
+                'goodsCount': item.quantity,
+                'realPrice': item.price,
+                'specInfo': [{'specValue': item.spec_label}],
+            } for item in items],
+        }
+
+    @classmethod
+    def admin_list(cls, page_num=1, page_size=10, order_status=None, order_no='', consignee='', phone=''):
+        """管理员订单列表（查所有用户）"""
+        session = get_session()
+        with session.begin():
+            q = session.query(Order)
+            if order_status is not None and int(order_status) >= 0:
+                q = q.filter(Order.order_status == int(order_status))
+            if order_no:
+                q = q.filter(Order.order_id.like('%' + order_no + '%'))
+            if consignee:
+                q = q.filter(Order.consignee_name.like('%' + consignee + '%'))
+            if phone:
+                q = q.filter(Order.consignee_mobile.like('%' + phone + '%'))
+            total = q.count()
+            q = q.order_by(Order.create_time.desc()).limit(page_size).offset((page_num - 1) * page_size)
+            orders = q.all()
+            return {'data': {
+                'total': total,
+                'list': [cls._format_admin_order(o, session) for o in orders],
+            }}
+
+    @classmethod
+    def admin_process(cls, order_no, data):
+        """管理员处理订单（发货）"""
+        session = get_session()
+        with session.begin():
+            order = session.query(Order).filter(Order.order_id == order_no).first()
+            if not order:
+                return {'success': False, 'message': '订单不存在'}
+            if 'shippingCompany' in data:
+                order.order_status = 2
+                order.shipping_company = data.get('shippingCompany', '')
+                order.shipping_no = data.get('shippingNo', '')
+            elif data.get('action') == 'complete':
+                order.order_status = 3
+            return {'success': True}
+
+    @classmethod
+    def admin_detail(cls, order_no):
+        """管理员订单详情"""
+        session = get_session()
+        with session.begin():
+            order = session.query(Order).filter(Order.order_id == order_no).first()
+            if not order:
+                return {'success': False, 'message': '订单不存在'}
+            return {'data': cls._format_admin_order(order, session)}
+
+    @classmethod
+    def _format_admin_order(cls, order, session):
+        items = session.query(OrderItem).filter(OrderItem.order_id == order.order_id).all()
+        return {
+            'orderNo': order.order_id,
+            'consignee': order.consignee_name,
+            'phone': order.consignee_mobile,
+            'address': order.consignee_address,
+            'status': order.order_status,
+            'totalAmount': order.total_amount,
+            'payAmount': order.pay_amount,
+            'remark': order.remark,
+            'createTime': order.create_time.strftime('%Y-%m-%d %H:%M:%S') if order.create_time else '',
+            'shippingCompany': order.shipping_company or '',
+            'shippingNo': order.shipping_no or '',
+            'orderItemList': [{
+                'title': it.title,
+                'thumb': it.thumb,
+                'specInfo': [{'specValue': it.spec_label}],
+                'price': it.price,
+                'quantity': it.quantity,
+            } for it in items],
+        }
+
+    @staticmethod
+    def _status_name(status):
+        names = {0: '待付款', 1: '已付款', 2: '已发货', 3: '已完成', 4: '已取消'}
+        return names.get(status, '未知')
+
+    @classmethod
     def preview(cls, user_id, items):
         """订单预览（只算金额，不写DB）"""
         session = get_session()
@@ -140,6 +276,7 @@ class OrderDao:
                 remark=remark,
             )
             session.add(order)
+            session.flush()  # 先插入 order，确保 order_id 可用
             for oi in order_items:
                 session.add(oi)
 
@@ -179,12 +316,13 @@ class OrderDao:
             ).all()
             return {
                 'orderId': order.order_id,
-                'totalAmount': order.total_amount,
-                'discountAmount': order.discount_amount,
-                'freightAmount': order.freight_amount,
-                'payAmount': order.pay_amount,
-                'payStatus': order.pay_status,
+                'orderNo': order.order_id,
                 'orderStatus': order.order_status,
+                'orderStatusName': cls._status_name(order.order_status),
+                'paymentAmount': order.pay_amount,
+                'goodsAmountApp': order.total_amount,
+                'totalAmount': order.total_amount,
+                'freightFee': 0,
                 'consigneeName': order.consignee_name,
                 'consigneeMobile': order.consignee_mobile,
                 'consigneeAddress': order.consignee_address,
@@ -192,15 +330,21 @@ class OrderDao:
                 'paymentMethod': order.payment_method,
                 'paidAt': order.paid_at.strftime('%Y-%m-%d %H:%M:%S') if order.paid_at else '',
                 'createTime': order.create_time.strftime('%Y-%m-%d %H:%M:%S') if order.create_time else '',
-                'items': [{
+                'logisticsVO': {'logisticsNo': ''},
+                'buttonVOs': [],
+                'orderItemVOs': [{
+                    'id': oi.id,
                     'spuId': oi.spu_id,
                     'skuId': oi.sku_id,
-                    'title': oi.title,
-                    'thumb': oi.thumb,
-                    'specLabel': oi.spec_label,
+                    'goodsName': oi.title,
+                    'goodsPictureUrl': oi.thumb,
+                    'specInfo': [{'specValue': oi.spec_label}],
+                    'specifications': [{'specValue': oi.spec_label}],
                     'price': oi.price,
-                    'quantity': oi.quantity,
-                    'subtotal': oi.subtotal,
+                    'tagPrice': None,
+                    'actualPrice': oi.price,
+                    'buyQuantity': oi.quantity,
+                    'goodsCount': oi.quantity,
                 } for oi in items],
             }
 

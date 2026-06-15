@@ -52,3 +52,46 @@ def wx_login(params):
         return None, None
 
     return result
+
+
+@deco_catch_view_exception("更新用户资料")
+def update_profile(user_id, data):
+    from mall.db.engines.mysql import get_session
+    session = get_session()
+    with session.begin():
+        user = session.query(User).filter(User.id == user_id).first()
+        if not user:
+            return {"success": False, "message": "用户不存在"}
+        if data.get('avatar'):
+            user.avatar = data['avatar']
+        if data.get('nickName') or data.get('name'):
+            user.name = data.get('nickName') or data['name']
+    return {"success": True}
+
+
+@deco_catch_view_exception("用户信息")
+def user_info(user_id):
+    if not user_id:
+        return {}
+    from mall.db.models.User.model import User
+    from mall.db.engines.mysql import get_session
+    from mall.db.models.Order.sql import OrderDao
+
+    session = get_session()
+    nickname = ''
+    avatar = ''
+    with session.begin():
+        user = session.query(User).filter(User.id == user_id).first()
+        if user:
+            nickname = user.name or ''
+            avatar = user.avatar or ''
+
+    counts = OrderDao.count_by_status(user_id) or {}
+    data = counts.get('data', [])
+
+    return {
+        'userInfo': {'avatarUrl': avatar, 'nickName': nickname, 'phoneNumber': ''},
+        'countsData': [],
+        'orderTagInfos': data,
+        'customerServiceInfo': {},
+    }

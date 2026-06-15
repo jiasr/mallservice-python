@@ -27,6 +27,38 @@ def cancel(user_id, data):
     return OrderDao.cancel(data.get('orderId', ''), user_id)
 
 
+def order_list(user_id, params):
+    return OrderDao.list(
+        user_id,
+        int(params.get('pageNum', 1)),
+        int(params.get('pageSize', 10)),
+        params.get('orderStatus'),
+    )
+
+
+def order_count(user_id):
+    return OrderDao.count_by_status(user_id)
+
+
+def admin_list(params):
+    return OrderDao.admin_list(
+        int(params.get('pageNum', 1)),
+        int(params.get('pageSize', 10)),
+        params.get('orderStatus'),
+        params.get('orderNo', ''),
+        params.get('consignee', ''),
+        params.get('phone', ''),
+    )
+
+
+def admin_process(order_no, data):
+    return OrderDao.admin_process(order_no, data)
+
+
+def admin_detail(order_no):
+    return OrderDao.admin_detail(order_no)
+
+
 def pay(user_id, data):
     """获取微信支付参数"""
     order_id = data.get('orderId', '')
