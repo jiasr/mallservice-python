@@ -93,16 +93,20 @@ def pay(user_id, data):
     }
 
 
-def pay_notify(xml_str):
-    """微信支付回调处理"""
+def pay_notify_v3(body_json, headers):
+    """微信支付 APIv3 回调处理"""
     try:
-        data = WechatPayService.verify_notify(xml_str)
+        result = WechatPayService.parse_notify(body_json, headers)
     except Exception as e:
-        LOG.error("回调签名验证失败: {}".format(e))
-        return {'return_code': 'FAIL', 'return_msg': '签名失败'}
+        LOG.error("APIv3 回调处理失败: {}".format(e))
+        return {'code': 'FAIL', 'message': str(e)}, 500
 
-    order_id = data.get('out_trade_no', '')
-    transaction_id = data.get('transaction_id', '')
+    if result.get('trade_state') != 'SUCCESS':
+        LOG.warning("回调交易状态非 SUCCESS: {}".format(result.get('trade_state')))
+        return {'code': 'FAIL', 'message': 'trade_state not SUCCESS'}, 500
+
+    order_id = result.get('out_trade_no', '')
+    transaction_id = result.get('transaction_id', '')
 
     session = get_session()
     with session.begin():
@@ -114,4 +118,4 @@ def pay_notify(xml_str):
             order.payment_method = 'wechat'
 
     LOG.info("订单 {} 支付成功, 微信交易号: {}".format(order_id, transaction_id))
-    return {'return_code': 'SUCCESS', 'return_msg': 'OK'}
+    return {'code': 'SUCCESS', 'message': 'OK'}

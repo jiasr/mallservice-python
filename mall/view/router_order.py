@@ -84,11 +84,12 @@ class OrderPay(Resource):
 
 @ns_order.route('/pay/notify', methods=['POST'])
 class OrderPayNotify(Resource):
-    """微信支付回调通知"""
+    """微信支付 APIv3 回调通知"""
     @deco_catch_view_exception("支付回调")
     def post(self):
-        xml_str = request.data.decode('utf-8')
-        return order_service.pay_notify(xml_str)
+        # APIv3: 请求体为 JSON，需要 headers 中的 Wechatpay-* 验签信息
+        body_json = request.get_json(force=True, silent=True) or {}
+        return order_service.pay_notify_v3(body_json, dict(request.headers))
 
 
 @ns_order.route('/cancel', methods=['POST'])

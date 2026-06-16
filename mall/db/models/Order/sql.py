@@ -293,7 +293,7 @@ class OrderDao:
                 'orderId': order_id,
                 'payAmount': total_amount,
                 'tradeNo': order_id,
-                'channel': '',
+                'channel': 'wechat',
                 'payInfo': '',
                 'interactId': '',
                 'transactionId': '',
