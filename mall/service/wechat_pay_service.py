@@ -15,7 +15,7 @@ from mall.common.wechat_pay_utils import (
     build_jsapi_pay_sign,
     decrypt_aes_gcm,
 )
-from mall.db.models.SystemConfig.model import SystemConfig
+from mall.db.models.WechatPayConfig.model import WechatPayConfig
 from mall.db.engines.mysql import get_session
 
 LOG = logging.getLogger(__name__)
@@ -67,16 +67,16 @@ class WechatPayService:
     def _get_config(key):
         session = get_session()
         with session.begin():
-            cfg = session.query(SystemConfig).filter(
-                SystemConfig.config_key == key
-            ).first()
-            val = cfg.config_value if cfg else ''
-            if val:
-                masked = val[:4] + '****' + val[-4:] if len(val) > 8 else '****'
-            else:
-                masked = '(空)'
-            LOG.info("微信配置 [{}] = {}".format(key, masked))
-            return val
+            cfg = session.query(WechatPayConfig).first()
+            if not cfg:
+                return ''
+            mapping = {
+                'wechat_app_id': cfg.app_id,
+                'wechat_mch_id': cfg.mch_id,
+                'wechat_mch_key': cfg.mch_key,
+                'wechat_notify_url': cfg.notify_url,
+            }
+            return mapping.get(key, '')
 
     @classmethod
     def _get_private_key_and_serial(cls):

@@ -220,6 +220,7 @@ class AdminUserDao:
                 (22, "基本设置", "/setting/base", "Tools", 8, 1, ""),
                 (23, "角色与权限", "/setting/role", "Key", 8, 2, "admin:manage"),
                 (24, "存储配置", "/setting/objectsto", "Folder", 8, 3, ""),
+                (25, "微信支付", "/setting/wechatpay", "Money", 8, 4, ""),
             ]
 
             for (mid, name, frontpath, icon, parent_id, sort_order, permission) in default_menus:
@@ -323,6 +324,11 @@ class AdminUserDao:
                 ("allow_register", "true", "是否允许注册", "access"),
                 ("register_need_audit", "false", "注册是否需要审核", "access"),
                 ("enable_distribution", "true", "是否启用分销", "access"),
+                # 微信支付
+                ("wechat_app_id", "", "微信小程序AppID", "pay"),
+                ("wechat_mch_id", "", "微信商户号", "pay"),
+                ("wechat_mch_key", "", "微信商户API密钥", "pay"),
+                ("wechat_notify_url", "", "支付回调URL", "pay"),
             ]
 
             for key, value, description, group in default_configs:

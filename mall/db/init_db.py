@@ -23,6 +23,9 @@ from mall.db.models.SystemConfig import model as _m_syscfg  # noqa
 from mall.db.models.StorageConfig import model as _m_storage  # noqa
 from mall.db.models.Region import model as _m_region  # noqa
 from mall.db.models.Task import model as _m_task  # noqa
+from mall.db.models.Cart import model as _m_cart  # noqa
+from mall.db.models.Order import model as _m_order  # noqa
+from mall.db.models.WechatPayConfig import model as _m_wxpay  # noqa
 
 LOG = logging.getLogger(__name__)
 
@@ -45,6 +48,9 @@ _TABLE_CREATE_ORDER = [
     't_mall_system_config',
     't_mall_storage_config',
     't_mall_cart',
+    't_mall_order',
+    't_mall_order_item',
+    't_mall_wechat_pay_config',
     't_mall_task',
 ]
 

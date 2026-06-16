@@ -58,10 +58,10 @@ class OrderDao:
             pending_receipt = session.query(Order).filter(Order.user_id == user_id, Order.order_status == 2).count()
             complete = session.query(Order).filter(Order.user_id == user_id, Order.order_status == 3).count()
             return {'data': [
-                {'text': '待付款', 'count': pending_pay},
-                {'text': '待发货', 'count': pending_deliver},
-                {'text': '待收货', 'count': pending_receipt},
-                {'text': '已完成', 'count': complete},
+                {'orderNum': pending_pay},
+                {'orderNum': pending_deliver},
+                {'orderNum': pending_receipt},
+                {'orderNum': complete},
             ]}
 
     @classmethod
@@ -74,7 +74,7 @@ class OrderDao:
             'parentOrderNo': '',
             'storeId': '1000',
             'storeName': '',
-            'orderStatus': order.order_status,
+            'orderStatus': cls._status_to_frontend(order.order_status),
             'orderStatusName': cls._status_name(order.order_status),
             'paymentAmount': order.pay_amount,
             'totalAmount': order.total_amount,
@@ -164,8 +164,14 @@ class OrderDao:
 
     @staticmethod
     def _status_name(status):
-        names = {0: '待付款', 1: '已付款', 2: '已发货', 3: '已完成', 4: '已取消'}
+        names = {0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消'}
         return names.get(status, '未知')
+
+    @staticmethod
+    def _status_to_frontend(status):
+        """后端状态 → 前端状态码（小程序订单列表/详情使用）"""
+        mapping = {0: 5, 1: 10, 2: 40, 3: 50, 4: 80}
+        return mapping.get(status, status)
 
     @classmethod
     def preview(cls, user_id, items):
@@ -317,7 +323,7 @@ class OrderDao:
             return {
                 'orderId': order.order_id,
                 'orderNo': order.order_id,
-                'orderStatus': order.order_status,
+                'orderStatus': cls._status_to_frontend(order.order_status),
                 'orderStatusName': cls._status_name(order.order_status),
                 'paymentAmount': order.pay_amount,
                 'goodsAmountApp': order.total_amount,

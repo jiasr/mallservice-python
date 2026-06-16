@@ -110,8 +110,14 @@ class AdminOrderList(Resource):
     @admin_required
     @deco_catch_view_exception("管理员订单列表")
     def get(self):
-        import json as j
-        params = j.loads(request.args.get('parameter', '{}'))
+        params = {
+            'pageNum': int(request.args.get('pageNum', 1)),
+            'pageSize': int(request.args.get('pageSize', 10)),
+            'orderStatus': request.args.get('status'),
+            'orderNo': request.args.get('orderNo', ''),
+            'consignee': request.args.get('consignee', ''),
+            'phone': request.args.get('phone', ''),
+        }
         return order_service.admin_list(params)
 
 

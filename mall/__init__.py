@@ -18,6 +18,7 @@ from mall.view.router_setting import app_setting,ns_setting
 from mall.view.router_s3 import app_storage,ns_storage
 from mall.view.router_cart import app_cart,ns_cart
 from mall.view.router_order import app_order,ns_order
+from mall.view.router_wechatpay import app_wechatpay,ns_wechatpay
 
 
 LOG = logging.getLogger(__name__)
@@ -77,6 +78,7 @@ app.register_blueprint(app_setting, url_prefix="/v1/admin")
 app.register_blueprint(app_storage, url_prefix="/v1/admin")
 app.register_blueprint(app_cart, url_prefix="/v1/cart")
 app.register_blueprint(app_order, url_prefix="/v1/order")
+app.register_blueprint(app_wechatpay, url_prefix="/v1/admin")
 
 
 
@@ -91,6 +93,7 @@ api.add_namespace(ns_setting)
 api.add_namespace(ns_storage)
 api.add_namespace(ns_cart)
 api.add_namespace(ns_order)
+api.add_namespace(ns_wechatpay)
 
 # 启动时自动执行数据库迁移
 try:
