@@ -6,6 +6,7 @@ from mall.db.engines.mysql import get_session
 from mall.db.models.Order.model import Order, OrderItem
 from mall.db.models.Goods.model import GoodsSpu, GoodsSku
 from mall.db.models.Cart.model import Cart
+from mall.db.models.User.model import UserAddress
 from mall.db.engines.s3 import get_image_display_url
 from mall.common.common import Fail
 
@@ -69,6 +70,7 @@ class OrderDao:
         """格式化订单为前端需要的格式"""
         items = session.query(OrderItem).filter(OrderItem.order_id == order.order_id).all()
         return {
+            'id': order.id,
             'orderId': order.order_id,
             'orderNo': order.order_id,
             'parentOrderNo': '',
@@ -264,20 +266,44 @@ class OrderDao:
                     subtotal=subtotal,
                 ))
 
-            addr = '{} {} {}{}'.format(
-                consignee.get('province', ''),
-                consignee.get('city', ''),
-                consignee.get('district', ''),
-                consignee.get('detail', ''),
-            ).strip()
+            # 校验配送地址：优先按 addressId 从数据库加载，确保属于当前用户
+            address_id = consignee.get('addressId', '')
+            if address_id:
+                address = session.query(UserAddress).filter(
+                    UserAddress.id == address_id,
+                    UserAddress.userid == user_id,
+                ).first()
+                if not address:
+                    raise Fail("ADDRESS_NOT_FOUND", {}, "配送地址不存在或不属于当前用户")
+                consignee_name = address.name
+                consignee_mobile = address.mobile
+                addr = '{} {} {}{}'.format(
+                    address.province or '',
+                    address.city or '',
+                    address.district or '',
+                    address.detail or '',
+                ).strip()
+            else:
+                # 无 addressId 时使用前端传入的原始数据
+                consignee_name = consignee.get('name', '')
+                consignee_mobile = consignee.get('mobile', '')
+                addr = '{} {} {}{}'.format(
+                    consignee.get('province', ''),
+                    consignee.get('city', ''),
+                    consignee.get('district', ''),
+                    consignee.get('detail', ''),
+                ).strip()
+
+            if not consignee_name or not consignee_mobile:
+                raise Fail("CONSIGNEE_REQUIRED", {}, "收货人姓名和手机号不能为空")
 
             order = Order(
                 order_id=order_id,
                 user_id=user_id,
                 total_amount=total_amount,
                 pay_amount=total_amount,
-                consignee_name=consignee.get('name', ''),
-                consignee_mobile=consignee.get('mobile', ''),
+                consignee_name=consignee_name,
+                consignee_mobile=consignee_mobile,
                 consignee_address=addr,
                 remark=remark,
             )
@@ -307,18 +333,18 @@ class OrderDao:
         }
 
     @classmethod
-    def get_detail(cls, order_id, user_id):
-        """获取订单详情"""
+    def get_detail(cls, order_pk, user_id):
+        """获取订单详情（按主键 id 查询）"""
         session = get_session()
         with session.begin():
             order = session.query(Order).filter(
-                Order.order_id == order_id,
+                Order.id == order_pk,
                 Order.user_id == user_id,
             ).first()
             if not order:
                 raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
             items = session.query(OrderItem).filter(
-                OrderItem.order_id == order_id
+                OrderItem.order_id == order.order_id
             ).all()
             return {
                 'orderId': order.order_id,

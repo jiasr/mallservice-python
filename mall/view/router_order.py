@@ -66,8 +66,8 @@ class OrderDetail(Resource):
         user_id = _get_user_id()
         if not user_id:
             return {"success": False, "message": "请先登录"}
-        order_id = request.args.get('orderId', '')
-        return order_service.detail(user_id, order_id)
+        order_id = request.args.get('id', 0)
+        return order_service.detail(user_id, int(order_id))
 
 
 @ns_order.route('/pay', methods=['POST'])

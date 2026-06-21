@@ -1,8 +1,6 @@
 """微信支付 APIv3 核心服务：JSAPI 下单、回调解密处理"""
 
 import json
-import os
-import re
 
 import requests
 from oslo_log import log as logging
@@ -23,43 +21,6 @@ LOG = logging.getLogger(__name__)
 # APIv3 JSAPI 下单地址
 JSAPI_ORDER_URL = 'https://api.mch.weixin.qq.com/v3/pay/transactions/jsapi'
 
-# 证书文件搜索路径（按优先级）
-_CERT_SEARCH_PATHS = [
-    os.path.join(os.path.dirname(__file__), '..', '..', 'apiclient_key.pem'),     # 项目根
-    os.path.join(os.path.dirname(__file__), '..', '..', 'cert', 'apiclient_key.pem'),
-    '/etc/mall/apiclient_key.pem',
-    '/data/cert/apiclient_key.pem',
-]
-_CERT_SEARCH_PATHS_CERT = [
-    os.path.join(os.path.dirname(__file__), '..', '..', 'apiclient_cert.pem'),
-    os.path.join(os.path.dirname(__file__), '..', '..', 'cert', 'apiclient_cert.pem'),
-    '/etc/mall/apiclient_cert.pem',
-    '/data/cert/apiclient_cert.pem',
-]
-
-
-def _find_file(paths):
-    for p in paths:
-        absp = os.path.abspath(p)
-        if os.path.isfile(absp):
-            return absp
-    return None
-
-
-def _extract_cert_serial(cert_path):
-    """从 PEM 证书文件中提取序列号（hex 格式）"""
-    try:
-        from cryptography import x509
-        from cryptography.hazmat.backends import default_backend
-        with open(cert_path, 'rb') as f:
-            cert = x509.load_pem_x509_certificate(f.read(), default_backend())
-        serial = format(cert.serial_number, 'X')
-        LOG.info("从证书文件提取序列号: {}".format(serial))
-        return serial
-    except Exception as e:
-        LOG.warning("提取证书序列号失败: {}".format(e))
-        return None
-
 
 class WechatPayService:
 
@@ -75,56 +36,24 @@ class WechatPayService:
                 'wechat_mch_id': cfg.mch_id,
                 'wechat_mch_key': cfg.mch_key,
                 'wechat_notify_url': cfg.notify_url,
+                'wechat_private_key': cfg.private_key,
+                'wechat_cert_serial_no': cfg.cert_serial_no,
             }
             return mapping.get(key, '')
 
     @classmethod
     def _get_private_key_and_serial(cls):
-        """获取商户私钥和证书序列号
-
-        优先级：
-          1. DB 配置 wechat_private_key / wechat_cert_serial_no
-          2. 磁盘文件 apiclient_key.pem / apiclient_cert.pem
-        """
-        # 先从 DB 读
+        """从 DB 配置获取商户私钥和证书序列号"""
         private_key_pem = cls._get_config('wechat_private_key')
         cert_serial_no = cls._get_config('wechat_cert_serial_no')
 
-        # 如果 DB 中有完整私钥内容，直接使用
-        if private_key_pem and 'BEGIN PRIVATE KEY' in private_key_pem:
-            if cert_serial_no:
-                return private_key_pem, cert_serial_no
-            # 有私钥但没序列号，尝试从文件提取
-            cert_path = _find_file(_CERT_SEARCH_PATHS_CERT)
-            if cert_path:
-                serial = _extract_cert_serial(cert_path)
-                if serial:
-                    return private_key_pem, serial
-            raise Exception("证书序列号未配置，请在管理后台填写 wechat_cert_serial_no "
-                            "或放置 apiclient_cert.pem 文件到项目根目录")
+        if not private_key_pem or 'BEGIN PRIVATE KEY' not in private_key_pem:
+            raise Exception("商户 API 私钥未配置（wechat_private_key）")
 
-        # DB 没有私钥内容 → 尝试从磁盘文件加载
-        key_path = _find_file(_CERT_SEARCH_PATHS)
-        if not key_path:
-            raise Exception("找不到商户 API 私钥文件。请在管理后台填写 wechat_private_key "
-                            "或将 apiclient_key.pem 放置在项目根目录")
+        if not cert_serial_no:
+            raise Exception("商户证书序列号未配置（wechat_cert_serial_no）")
 
-        LOG.info("从文件加载私钥: {}".format(key_path))
-        with open(key_path, 'r') as f:
-            private_key_pem = f.read()
-
-        # 尝试获取序列号
-        if cert_serial_no:
-            return private_key_pem, cert_serial_no
-
-        cert_path = _find_file(_CERT_SEARCH_PATHS_CERT)
-        if cert_path:
-            serial = _extract_cert_serial(cert_path)
-            if serial:
-                return private_key_pem, serial
-
-        raise Exception("证书序列号未配置，请在管理后台填写 wechat_cert_serial_no "
-                        "或放置 apiclient_cert.pem 文件到项目根目录")
+        return private_key_pem, cert_serial_no
 
     @classmethod
     def get_pay_params(cls, order_id, total_fee, openid, spbill_create_ip='127.0.0.1'):
@@ -149,7 +78,7 @@ class WechatPayService:
                 ('wechat_mch_key', apiv3_key),
             ] if not v]
             LOG.error("微信支付基础配置不完整: {}".format(missing))
-            raise Exception('微信支付配置不完整，请在管理后台填写 app_id/mch_id/mch_key')
+            raise Exception('微信支付基础配置不完整: {}'.format(', '.join(missing)))
 
         # 2. 获取私钥和证书序列号
         private_key_pem, cert_serial_no = cls._get_private_key_and_serial()
