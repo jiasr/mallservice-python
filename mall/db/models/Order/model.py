@@ -25,6 +25,12 @@ class Order(BASE, DbBase):
     paid_at = Column(DateTime, comment='支付时间')
     shipping_company = Column(String(100), default='', comment='物流公司')
     shipping_no = Column(String(100), default='', comment='物流单号')
+    delivery_type = Column(Integer, default=0, comment='配送方式 0=快递 1=同城配送 2=自提')
+    pickup_store_id = Column(Integer, default=0, comment='自提门店ID')
+    pickup_store_name = Column(String(100), default='', comment='自提门店名称')
+    pickup_code = Column(String(10), default='', comment='自提核销码')
+    pickup_expire_time = Column(DateTime, comment='自提截止时间')
+    local_delivery_time = Column(String(50), default='', comment='同城配送时段')
     create_time = Column(DateTime, default=datetime.now)
     update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 

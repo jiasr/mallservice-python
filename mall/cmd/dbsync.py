@@ -42,6 +42,11 @@ def table_sync():
         BASE.metadata.tables["t_mall_system_config"],
         BASE.metadata.tables["t_mall_storage_config"],
         BASE.metadata.tables["t_mall_cart"],
+        BASE.metadata.tables["t_mall_order"],
+        BASE.metadata.tables["t_mall_order_item"],
+        BASE.metadata.tables["t_mall_wechat_pay_config"],
+        BASE.metadata.tables["t_mall_freight_template"],
+        BASE.metadata.tables["t_mall_freight_region"],
         BASE.metadata.tables["regions"],
     ]
     BASE.metadata.create_all(get_engine(), tables=tables, checkfirst=True)

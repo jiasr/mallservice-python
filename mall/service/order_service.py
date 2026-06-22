@@ -12,7 +12,12 @@ LOG = logging.getLogger(__name__)
 
 
 def preview(user_id, data):
-    return OrderDao.preview(user_id, data.get('items', []))
+    return OrderDao.preview(
+        user_id,
+        data.get('items', []),
+        data.get('consignee', {}).get('provinceCode', ''),
+        int(data.get('deliveryType', 0)),
+    )
 
 
 def create(user_id, data):

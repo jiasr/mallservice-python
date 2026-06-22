@@ -1,5 +1,6 @@
 """订单数据访问层"""
 import json
+import math
 from datetime import datetime
 from sqlalchemy import func
 from mall.db.engines.mysql import get_session
@@ -7,6 +8,7 @@ from mall.db.models.Order.model import Order, OrderItem
 from mall.db.models.Goods.model import GoodsSpu, GoodsSku
 from mall.db.models.Cart.model import Cart
 from mall.db.models.User.model import UserAddress
+from mall.db.models.Freight.sql import FreightCalculator
 from mall.db.engines.s3 import get_image_display_url
 from mall.common.common import Fail
 
@@ -80,6 +82,8 @@ class OrderDao:
             'orderStatusName': cls._status_name(order.order_status),
             'paymentAmount': order.pay_amount,
             'totalAmount': order.total_amount,
+            'freightFee': order.freight_amount,
+            'deliveryType': order.delivery_type,
             'logisticsVO': {'logisticsNo': ''},
             'createTime': order.create_time.strftime('%Y-%m-%d %H:%M:%S') if order.create_time else '',
             'orderItemVOs': [{
@@ -151,6 +155,8 @@ class OrderDao:
             'status': order.order_status,
             'totalAmount': order.total_amount,
             'payAmount': order.pay_amount,
+            'freightAmount': order.freight_amount,
+            'deliveryType': order.delivery_type,
             'remark': order.remark,
             'createTime': order.create_time.strftime('%Y-%m-%d %H:%M:%S') if order.create_time else '',
             'shippingCompany': order.shipping_company or '',
@@ -176,7 +182,7 @@ class OrderDao:
         return mapping.get(status, status)
 
     @classmethod
-    def preview(cls, user_id, items):
+    def preview(cls, user_id, items, province_code='', delivery_type=0):
         """订单预览（只算金额，不写DB）"""
         session = get_session()
         result_items = []
@@ -206,11 +212,17 @@ class OrderDao:
                     'quantity': qty,
                     'subtotal': price * qty,
                 })
+
+        # 计算运费
+        freight_items = [{'spu_id': it['spuId'], 'quantity': it['quantity']} for it in items]
+        freight_amount = FreightCalculator.calc(freight_items, province_code, total)
+
         return {
             'totalAmount': total,
             'discountAmount': 0,
-            'freightAmount': 0,
-            'payAmount': total,
+            'freightAmount': freight_amount,
+            'payAmount': total + freight_amount,
+            'deliveryType': delivery_type,
             'items': result_items,
         }
 
@@ -220,6 +232,11 @@ class OrderDao:
         items = data.get('items', [])
         consignee = data.get('consignee', {})
         remark = data.get('remark', '')
+        delivery_type = int(data.get('deliveryType', 0))
+        pickup_store_id = int(data.get('pickupStoreId', 0))
+        pickup_store_name = data.get('pickupStoreName', '')
+        local_delivery_time = data.get('localDeliveryTime', '')
+        province_code = consignee.get('provinceCode', '')
 
         session = get_session()
         with session.begin():
@@ -294,18 +311,27 @@ class OrderDao:
                     consignee.get('detail', ''),
                 ).strip()
 
-            if not consignee_name or not consignee_mobile:
+            if delivery_type == 0 and (not consignee_name or not consignee_mobile):
                 raise Fail("CONSIGNEE_REQUIRED", {}, "收货人姓名和手机号不能为空")
+
+            # 计算运费
+            freight_items = [{'spu_id': it['spuId'], 'quantity': it['quantity']} for it in items]
+            freight_amount = FreightCalculator.calc(freight_items, province_code, total_amount)
 
             order = Order(
                 order_id=order_id,
                 user_id=user_id,
                 total_amount=total_amount,
-                pay_amount=total_amount,
+                freight_amount=freight_amount,
+                pay_amount=total_amount + freight_amount,
+                delivery_type=delivery_type,
                 consignee_name=consignee_name,
                 consignee_mobile=consignee_mobile,
                 consignee_address=addr,
                 remark=remark,
+                pickup_store_id=pickup_store_id,
+                pickup_store_name=pickup_store_name,
+                local_delivery_time=local_delivery_time,
             )
             session.add(order)
             session.flush()  # 先插入 order，确保 order_id 可用
@@ -354,7 +380,8 @@ class OrderDao:
                 'paymentAmount': order.pay_amount,
                 'goodsAmountApp': order.total_amount,
                 'totalAmount': order.total_amount,
-                'freightFee': 0,
+                'freightFee': order.freight_amount,
+                'deliveryType': order.delivery_type,
                 'consigneeName': order.consignee_name,
                 'consigneeMobile': order.consignee_mobile,
                 'consigneeAddress': order.consignee_address,

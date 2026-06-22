@@ -25,6 +25,7 @@ from mall.db.models.Region import model as _m_region  # noqa
 from mall.db.models.Task import model as _m_task  # noqa
 from mall.db.models.Cart import model as _m_cart  # noqa
 from mall.db.models.Order import model as _m_order  # noqa
+from mall.db.models.Freight import model as _m_freight  # noqa
 from mall.db.models.WechatPayConfig import model as _m_wxpay  # noqa
 
 LOG = logging.getLogger(__name__)
@@ -50,6 +51,8 @@ _TABLE_CREATE_ORDER = [
     't_mall_cart',
     't_mall_order',
     't_mall_order_item',
+    't_mall_freight_template',
+    't_mall_freight_region',
     't_mall_wechat_pay_config',
     't_mall_task',
 ]

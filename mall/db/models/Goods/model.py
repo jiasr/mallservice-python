@@ -42,6 +42,8 @@ class GoodsSpu(BASE, SerializerMixin):
     min_line_price = Column(Integer, default=0, comment='最低划线价(分)')
     max_line_price = Column(Integer, default=0, comment='最高划线价(分)')
     stock_quantity = Column(Integer, default=0, comment='总库存')
+    freight_template_id = Column(Integer, default=0, comment='运费模板ID，0=使用默认模板')
+    delivery_type = Column(Integer, default=0, comment='配送方式 0=快递 1=同城配送 2=自提')
 
 
 class GoodsSku(BASE, SerializerMixin):

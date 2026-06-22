@@ -221,6 +221,12 @@ class AdminUserDao:
                 (23, "角色与权限", "/setting/role", "Key", 8, 2, "admin:manage"),
                 (24, "存储配置", "/setting/objectsto", "Folder", 8, 3, ""),
                 (25, "微信支付", "/setting/wechatpay", "Money", 8, 4, ""),
+
+                # 配送管理顶级菜单
+                (9, "配送管理", "/freight/list", "Truck", 0, 9, ""),
+                # 配送管理子菜单
+                (26, "运费模板", "/freight/list", "List", 9, 1, ""),
+                (27, "添加模板", "/freight/add", "Plus", 9, 2, "freight:add"),
             ]
 
             for (mid, name, frontpath, icon, parent_id, sort_order, permission) in default_menus:
