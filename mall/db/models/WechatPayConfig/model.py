@@ -14,6 +14,7 @@ class WechatPayConfig(BASE, DbBase):
     mch_key = Column(String(256), default='', comment='API密钥')
     notify_url = Column(String(512), default='', comment='支付回调URL')
     private_key = Column(String(4096), default='', comment='商户API V3私钥(PEM)')
-    cert_serial_no = Column(String(128), default='', comment='商户证书序列号')
+    certificate = Column(String(4096), default='', comment='商户证书(PEM)')
+    cert_serial_no = Column(String(128), default='', comment='商户证书序列号(自动提取)')
     create_time = Column(DateTime, default=datetime.now)
     update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)

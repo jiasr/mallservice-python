@@ -88,8 +88,9 @@ def pay(user_id, data):
             order_id, order.pay_amount, openid
         )
     except Exception as e:
-        LOG.error("微信支付下单失败: {}".format(e))
-        raise Fail("PAY_FAIL", {}, "支付服务异常")
+        err_msg = str(e)
+        LOG.error("微信支付下单失败: {}".format(err_msg))
+        raise Fail("PAY_FAIL", {}, err_msg)
 
     return {
         'orderId': order_id,

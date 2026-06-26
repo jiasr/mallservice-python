@@ -46,7 +46,11 @@ ALTER TABLE `t_mall_goods_spu`
   ADD COLUMN IF NOT EXISTS `freight_template_id` INT DEFAULT 0 COMMENT '运费模板ID' AFTER `stock_quantity`,
   ADD COLUMN IF NOT EXISTS `delivery_type` INT DEFAULT 0 COMMENT '配送方式' AFTER `freight_template_id`;
 
--- 5. 插入默认运费模板
+-- 5. 微信支付配置表增加证书字段
+ALTER TABLE `t_mall_wechat_pay_config`
+  ADD COLUMN IF NOT EXISTS `certificate` VARCHAR(4096) DEFAULT '' COMMENT '商户证书(PEM)' AFTER `private_key`;
+
+-- 6. 插入默认运费模板
 INSERT INTO `t_mall_freight_template` (`name`, `pricing_type`, `fixed_fee`, `first_unit`, `first_fee`, `continue_unit`, `continue_fee`, `free_threshold`, `is_default`)
 SELECT '默认运费模板', 1, 0, 1, 1000, 1, 500, 0, 1
 WHERE NOT EXISTS (SELECT 1 FROM `t_mall_freight_template` WHERE `is_default` = 1);

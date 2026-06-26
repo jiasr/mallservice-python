@@ -37,6 +37,7 @@ class WechatPayService:
                 'wechat_mch_key': cfg.mch_key,
                 'wechat_notify_url': cfg.notify_url,
                 'wechat_private_key': cfg.private_key,
+                'wechat_certificate': cfg.certificate,
                 'wechat_cert_serial_no': cfg.cert_serial_no,
             }
             return mapping.get(key, '')
