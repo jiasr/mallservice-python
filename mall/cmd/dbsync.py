@@ -96,12 +96,16 @@ def init_admin_data():
     AdminUserDao.init_all_default_data()
 
 
-def main():
-    load_config()
+def auto_migrate():
+    """自动迁移：建表 + 初始化默认数据（由应用启动时调用，不含 load_config）"""
     table_sync()
     init_area()
     init_admin_data()
 
 
+main = auto_migrate
+
+
 if __name__ == "__main__":
+    load_config()
     main()
