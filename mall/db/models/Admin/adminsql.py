@@ -223,7 +223,7 @@ class AdminUserDao:
                 (25, "微信支付", "/setting/wechatpay", "Money", 8, 4, ""),
 
                 # 配送管理顶级菜单
-                (12, "配送管理", "/freight/list", "Truck", 0, 9, ""),
+                (12, "配送管理", "/freight/list", "Van", 0, 9, ""),
                 # 配送管理子菜单
                 (26, "运费模板", "/freight/list", "List", 12, 1, ""),
                 (27, "添加模板", "/freight/add", "Plus", 12, 2, "freight:add"),

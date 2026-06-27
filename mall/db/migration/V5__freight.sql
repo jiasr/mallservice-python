@@ -57,9 +57,9 @@ WHERE NOT EXISTS (SELECT 1 FROM `t_mall_freight_template` WHERE `is_default` = 1
 
 -- 6. 添加菜单（如果不存在）
 INSERT IGNORE INTO `t_mall_admin_menu` (`id`, `name`, `frontpath`, `icon`, `parent_id`, `sort_order`, `permission`, `visible`) VALUES
-(9,  '配送管理', '/freight/list', 'Truck', 0, 9, '', 1),
-(26, '运费模板', '/freight/list', 'List',   9, 1, '', 1),
-(27, '添加模板', '/freight/add', 'Plus',   9, 2, 'freight:add', 1);
+(12, '配送管理', '/freight/list', 'Van', 0, 9, '', 1),
+(26, '运费模板', '/freight/list', 'List',   12, 1, '', 1),
+(27, '添加模板', '/freight/add', 'Plus',   12, 2, 'freight:add', 1);
 
 -- 7. 为超级管理员角色分配新菜单权限
 INSERT IGNORE INTO `t_mall_admin_role_menu` (`role_id`, `menu_id`)

@@ -11,6 +11,44 @@ from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
 
+def check_pay(user_id, data):
+    """主动查询微信支付状态并更新订单"""
+    order_id = data.get('orderId', '')
+    session = get_session()
+    with session.begin():
+        order = session.query(Order).filter(
+            Order.order_id == order_id,
+            Order.user_id == user_id,
+        ).first()
+        if not order:
+            raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
+        if order.pay_status == 1:
+            return {'payStatus': 1, 'paidAt': order.paid_at.strftime('%Y-%m-%d %H:%M:%S') if order.paid_at else ''}
+
+    try:
+        result = WechatPayService.query_order(order_id)
+        trade_state = result.get('trade_state', '')
+        transaction_id = result.get('transaction_id', '')
+
+        if trade_state == 'SUCCESS':
+            session = get_session()
+            with session.begin():
+                ord = session.query(Order).filter(Order.order_id == order_id).first()
+                if ord and ord.pay_status == 0:
+                    ord.pay_status = 1
+                    ord.order_status = 1
+                    ord.paid_at = datetime.now()
+                    ord.payment_method = 'wechat'
+                    ord.transaction_id = transaction_id
+            LOG.info("主动查询确认支付成功: {}".format(order_id))
+            return {'payStatus': 1, 'paidAt': datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        else:
+            return {'payStatus': 0, 'tradeState': trade_state}
+    except Exception as e:
+        LOG.error("查询支付状态失败: {}".format(e))
+        raise Fail("QUERY_FAIL", {}, str(e))
+
+
 def preview(user_id, data):
     return OrderDao.preview(
         user_id,
@@ -87,6 +125,7 @@ def pay(user_id, data):
         pay_params = WechatPayService.get_pay_params(
             order_id, order.pay_amount, openid
         )
+        LOG.info(pay_params)
     except Exception as e:
         err_msg = str(e)
         LOG.error("微信支付下单失败: {}".format(err_msg))
@@ -97,6 +136,45 @@ def pay(user_id, data):
         'payAmount': order.pay_amount,
         'paySign': pay_params,
     }
+
+
+def admin_refund(order_no, data):
+    """管理员发起退款"""
+    reason = data.get('reason', '')
+    session = get_session()
+    with session.begin():
+        order = session.query(Order).filter(Order.order_id == order_no).first()
+        if not order:
+            raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
+        if order.pay_status != 1:
+            raise Fail("ORDER_NOT_PAID", {}, "订单未支付或已退款")
+        if not order.transaction_id:
+            raise Fail("NO_TRANSACTION_ID", {}, "该订单无微信交易号，无法退款")
+
+        refund_amount = order.pay_amount
+
+    try:
+        result = WechatPayService.refund(
+            order_id=order_no,
+            transaction_id=order.transaction_id,
+            refund_amount=refund_amount,
+            total_amount=order.pay_amount,
+            reason=reason,
+        )
+    except Exception as e:
+        LOG.error("退款失败: {}".format(e))
+        raise Fail("REFUND_FAIL", {}, str(e))
+
+    # 退款成功后更新订单状态
+    session = get_session()
+    with session.begin():
+        ord = session.query(Order).filter(Order.order_id == order_no).first()
+        if ord:
+            ord.pay_status = 2
+            ord.order_status = 4
+
+    LOG.info("订单 {} 退款成功, 金额: {}分".format(order_no, refund_amount))
+    return {'success': True, 'refundAmount': refund_amount}
 
 
 def pay_notify_v3(body_json, headers):
@@ -122,6 +200,7 @@ def pay_notify_v3(body_json, headers):
             order.order_status = 1
             order.paid_at = datetime.now()
             order.payment_method = 'wechat'
+            order.transaction_id = transaction_id
 
     LOG.info("订单 {} 支付成功, 微信交易号: {}".format(order_id, transaction_id))
     return {'code': 'SUCCESS', 'message': 'OK'}

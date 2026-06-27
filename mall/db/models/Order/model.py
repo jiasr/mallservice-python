@@ -23,6 +23,7 @@ class Order(BASE, DbBase):
     remark = Column(String(500), default='', comment='买家留言')
     payment_method = Column(String(32), default='', comment='支付方式')
     paid_at = Column(DateTime, comment='支付时间')
+    transaction_id = Column(String(64), default='', comment='微信支付交易号(用于退款)')
     shipping_company = Column(String(100), default='', comment='物流公司')
     shipping_no = Column(String(100), default='', comment='物流单号')
     delivery_type = Column(Integer, default=0, comment='配送方式 0=快递 1=同城配送 2=自提')

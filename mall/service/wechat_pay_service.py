@@ -9,6 +9,7 @@ from mall.common.wechat_pay_utils import (
     generate_nonce,
     generate_timestamp,
     load_private_key,
+    sign_rsa,
     build_authorization,
     build_jsapi_pay_sign,
     decrypt_aes_gcm,
@@ -100,12 +101,14 @@ class WechatPayService:
                 'openid': openid,
             },
         }
+        LOG.info(body_dict)
         body_str = json.dumps(body_dict, separators=(',', ':'))
 
         # 4. 构建 Authorization
         auth = build_authorization('POST', '/v3/pay/transactions/jsapi',
                                    body_str, mch_id, cert_serial_no, private_key)
 
+        LOG.info(auth)
         LOG.info("APIv3 下单地址: {}".format(JSAPI_ORDER_URL))
         log_body = {k: v for k, v in body_dict.items() if k != 'payer'}
         LOG.info("APIv3 下单请求: {}".format(log_body))
@@ -117,13 +120,14 @@ class WechatPayService:
             'Accept': 'application/json',
             'User-Agent': 'mall-python/1.0',
         }
+        LOG.info(headers)
         try:
             resp = requests.post(JSAPI_ORDER_URL, data=body_str.encode('utf-8'),
                                  headers=headers, timeout=10)
             resp.raise_for_status()
             result = resp.json()
             prepay_id = result.get('prepay_id', '')
-            LOG.info("APIv3 下单成功, prepay_id={}".format(prepay_id))
+            LOG.info("APIv3 下单成功, prepay_id={}".format(result))
         except requests.RequestException as e:
             LOG.error("APIv3 下单网络请求异常: {}".format(e))
             if e.response is not None:
@@ -149,6 +153,118 @@ class WechatPayService:
         return pay_sign
 
     @classmethod
+    def refund(cls, order_id, transaction_id, refund_amount, total_amount, reason=''):
+        """APIv3: 申请退款
+
+        Args:
+            order_id: 商户订单号
+            transaction_id: 微信支付交易号
+            refund_amount: 退款金额(分)
+            total_amount: 原订单金额(分)
+            reason: 退款原因
+
+        Returns:
+            dict: 退款结果
+        """
+        LOG.info("===== 微信支付 APIv3 退款开始 =====")
+        LOG.info("订单号: {}, 交易号: {}, 退款金额: {}分".format(order_id, transaction_id, refund_amount))
+
+        # 1. 读取配置
+        mch_id = cls._get_config('wechat_mch_id')
+        apiv3_key = cls._get_config('wechat_mch_key')
+        if not all([mch_id, apiv3_key]):
+            raise Exception('微信支付基础配置不完整')
+
+        private_key_pem, cert_serial_no = cls._get_private_key_and_serial()
+        private_key = load_private_key(private_key_pem)
+
+        # 2. 构建退款请求
+        refund_no = 'RF' + order_id[2:]  # 退款单号: RF + 原订单号去掉前缀
+        body_dict = {
+            'transaction_id': transaction_id,
+            'out_refund_no': refund_no,
+            'amount': {
+                'refund': int(refund_amount),
+                'total': int(total_amount),
+                'currency': 'CNY',
+            },
+        }
+        if reason:
+            body_dict['reason'] = reason
+
+        body_str = json.dumps(body_dict, separators=(',', ':'))
+
+        # 3. 构建签名
+        auth = build_authorization('POST', '/v3/refund/domestic/refunds',
+                                   body_str, mch_id, cert_serial_no, private_key)
+
+        REFUND_URL = 'https://api.mch.weixin.qq.com/v3/refund/domestic/refunds'
+        headers = {
+            'Authorization': auth,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'mall-python/1.0',
+        }
+
+        LOG.info("退款请求: order_id={}, refund_no={}, amount={}".format(
+            order_id, refund_no, refund_amount))
+
+        try:
+            resp = requests.post(REFUND_URL, data=body_str.encode('utf-8'),
+                                 headers=headers, timeout=10)
+            resp.raise_for_status()
+            result = resp.json()
+            LOG.info("退款成功: refund_id={}, status={}".format(
+                result.get('refund_id'), result.get('status')))
+            return result
+        except requests.RequestException as e:
+            LOG.error("退款请求异常: {}".format(e))
+            if e.response is not None:
+                LOG.error("响应状态码: {}, 内容: {}".format(
+                    e.response.status_code, e.response.text[:500]))
+            raise Exception("退款失败: {}".format(e))
+
+    @classmethod
+    def query_order(cls, order_id):
+        """APIv3: 查询订单支付状态"""
+        LOG.info("===== 微信支付查询订单 =====")
+        app_id = cls._get_config('wechat_app_id')
+        mch_id = cls._get_config('wechat_mch_id')
+        if not all([app_id, mch_id]):
+            raise Exception('微信支付配置不完整')
+
+        private_key_pem, cert_serial_no = cls._get_private_key_and_serial()
+        private_key = load_private_key(private_key_pem)
+
+        url_path = '/v3/pay/transactions/out-trade-no/{}?mchid={}'.format(order_id, mch_id)
+        message = 'GET\n{}\n{}\n'.format(url_path, generate_timestamp()) + generate_nonce() + '\n\n'
+        # 简化：直接用 build_authorization 模式
+        url = 'https://api.mch.weixin.qq.com{}'.format(url_path)
+        nonce_str = generate_nonce()
+        timestamp = generate_timestamp()
+        message = 'GET\n{}\n{}\n{}\n\n'.format(url_path, timestamp, nonce_str)
+        signature = sign_rsa(message, private_key)
+        auth = 'WECHATPAY2-SHA256-RSA2048 mchid="{}",nonce_str="{}",signature="{}",timestamp="{}",serial_no="{}"'.format(
+            mch_id, nonce_str, signature, timestamp, cert_serial_no)
+
+        headers = {
+            'Authorization': auth,
+            'Accept': 'application/json',
+            'User-Agent': 'mall-python/1.0',
+        }
+        try:
+            resp = requests.get(url, headers=headers, timeout=10)
+            resp.raise_for_status()
+            result = resp.json()
+            LOG.info("查询订单 {}: trade_state={}".format(order_id, result.get('trade_state')))
+            return result
+        except requests.RequestException as e:
+            LOG.error("查询订单异常: {}".format(e))
+            if e.response is not None:
+                LOG.error("响应: {} {}".format(e.response.status_code, e.response.text[:500]))
+            raise Exception("查询订单失败")
+
+    @classmethod
     def parse_notify(cls, body_json: dict, headers: dict):
         """APIv3: 解析回调通知，验签 + 解密
 
@@ -160,15 +276,14 @@ class WechatPayService:
             dict: 解密后的支付结果数据
         """
         LOG.info("===== 微信支付 APIv3 回调 =====")
+        LOG.info(body_json)
 
         apiv3_key = cls._get_config('wechat_mch_key')
         if not apiv3_key:
             raise Exception('APIv3 密钥未配置')
 
         event_type = body_json.get('event_type', '')
-        if event_type != 'TRANSACTION.SUCCESS':
-            LOG.warning("忽略非支付成功回调: event_type={}".format(event_type))
-            raise Exception("非 TRANSACTION.SUCCESS 事件")
+        LOG.info("收到微信回调: event_type={}".format(event_type))
 
         resource = body_json.get('resource', {})
         if resource.get('algorithm') != 'AEAD_AES_256_GCM':
