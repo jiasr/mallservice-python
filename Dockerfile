@@ -3,14 +3,23 @@
 # ================================
 FROM python:3.9-slim
 
-WORKDIR /app
+# 使用阿里云镜像源加速
+ARG DEBIAN_FRONTEND=noninteractive
 
-# 安装系统依赖
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# 替换 apt 源为阿里云镜像
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list \
+    && sed -i 's/security.debian.org/mirrors.aliyun.com\/debian-security/g' /etc/apt/sources.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
         gcc \
         default-libmysqlclient-dev \
         libssl-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# 配置 pip 源为阿里云镜像
+RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
+    && pip config set global.trusted-host mirrors.aliyun.com
+
+WORKDIR /app
 
 # 复制依赖文件并安装
 COPY requirements.txt .
