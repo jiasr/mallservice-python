@@ -97,10 +97,34 @@ def init_admin_data():
 
 
 def auto_migrate():
-    """自动迁移：建表 + 初始化默认数据（由应用启动时调用，不含 load_config）"""
+    """自动迁移：建表 + 加列 + 初始化默认数据（由应用启动时调用，不含 load_config）"""
     table_sync()
+    _migrate_wechat_pay_config()
     init_area()
     init_admin_data()
+
+
+def _migrate_wechat_pay_config():
+    """迁移微信支付配置表：补充新增字段（已有表不会自动加列）"""
+    engine = get_engine()
+    with engine.connect() as conn:
+        # mysql-connector-python 下，DDL 语句需要 autocommit
+        conn.execution_options(isolation_level="AUTOCOMMIT")
+        try:
+            conn.execute("SELECT `apiv3_key` FROM `t_mall_wechat_pay_config` LIMIT 1")
+        except Exception:
+            conn.execute(
+                "ALTER TABLE `t_mall_wechat_pay_config` "
+                "ADD COLUMN `apiv3_key` VARCHAR(64) DEFAULT '' "
+                "COMMENT 'APIv3密钥(32位,解密回调)' AFTER `mch_key`"
+            )
+            LOG.info("迁移: t_mall_wechat_pay_config 添加 apiv3_key 列")
+        # mch_key 改大以容纳 PEM 公钥
+        try:
+            conn.execute("ALTER TABLE `t_mall_wechat_pay_config` MODIFY `mch_key` TEXT")
+            LOG.info("迁移: t_mall_wechat_pay_config mch_key 改为 TEXT")
+        except Exception:
+            pass
 
 
 main = auto_migrate

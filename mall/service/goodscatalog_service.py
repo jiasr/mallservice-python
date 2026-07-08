@@ -30,3 +30,11 @@ def goodscatalog_tree(params):
 @deco_catch_view_exception("分类树")
 def goodscatalog_delete(params):
     return  GoodsCatalogDao.goods_catalog_delete(params)
+
+@deco_catch_view_exception("分类排序")
+def goodscatalog_update_sort(data):
+    return GoodsCatalogDao.goods_catalog_update_sort(data)
+
+@deco_catch_view_exception("批量删除分类")
+def goodscatalog_batch_delete(data):
+    return GoodsCatalogDao.goods_catalog_batch_delete(data)

@@ -10,7 +10,7 @@ import logging as py_logging
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key
 
 LOG = py_logging.getLogger(__name__)
 
@@ -28,6 +28,30 @@ def generate_timestamp():
 def load_private_key(private_key_content: str):
     """加载 PEM 格式的商户 API 私钥"""
     return load_pem_private_key(private_key_content.encode('utf-8'), password=None)
+
+
+def load_public_key(public_key_content: str):
+    """加载 PEM 格式的公钥"""
+    return load_pem_public_key(public_key_content.encode('utf-8'))
+
+
+def verify_signature(message: str, signature_b64: str, public_key) -> bool:
+    """RSA-SHA256 验签
+
+    Returns:
+        bool: True 验签通过
+    """
+    try:
+        signature = base64.b64decode(signature_b64)
+        public_key.verify(
+            signature,
+            message.encode('utf-8'),
+            padding.PKCS1v15(),
+            hashes.SHA256(),
+        )
+        return True
+    except Exception:
+        return False
 
 
 def sign_rsa(message: str, private_key) -> str:

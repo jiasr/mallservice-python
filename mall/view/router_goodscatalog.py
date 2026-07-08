@@ -48,3 +48,17 @@ class GoodsCatalogList(Resource):
         params ={}
         params["id"]=id
         return goodscatalog_service.goodscatalog_delete(params)
+
+
+@ns_goodscatalog.route('/update-sort', methods=['POST'])
+class GoodsCatalogSort(Resource):
+    def post(self):
+        data = json.loads(request.data)
+        return goodscatalog_service.goodscatalog_update_sort(data)
+
+
+@ns_goodscatalog.route('/batch-delete', methods=['POST'])
+class GoodsCatalogBatchDelete(Resource):
+    def post(self):
+        data = json.loads(request.data)
+        return goodscatalog_service.goodscatalog_batch_delete(data)

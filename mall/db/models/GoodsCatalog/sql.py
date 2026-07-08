@@ -29,6 +29,7 @@ class GoodsCatalogDao:
                 name = data.get("name"),
                 parentid=data.get("parentId"),
                 sort_order=data.get("sort"),
+                thumbnail=data.get("thumbnail"),
                 level = level
 
             )
@@ -43,9 +44,12 @@ class GoodsCatalogDao:
             catalog = session.query(GoodsCatalog).filter(GoodsCatalog.id == data.get("id")).first()
             if catalog is None:
                 raise Fail("分类不存在")
-            # 开始添加
-            catalog.name=data.get("name")
-            catalog.sort_order=data.get("sortOrder")
+            if data.get("name") is not None:
+                catalog.name = data.get("name")
+            if data.get("sortOrder") is not None:
+                catalog.sort_order = data.get("sortOrder")
+            if data.get("thumbnail") is not None:
+                catalog.thumbnail = data.get("thumbnail")
 
         return {}
 
@@ -96,3 +100,37 @@ class GoodsCatalogDao:
 
             result["status"] = "ok"
         return result
+
+    @classmethod
+    def goods_catalog_update_sort(cls, data):
+        """批量更新分类排序：接收 [{id:..., sortOrder:...}, ...]"""
+        items = data.get("items", [])
+        session = get_session()
+        with session.begin():
+            for item in items:
+                catalog = session.query(GoodsCatalog).filter(
+                    GoodsCatalog.id == item.get("id")
+                ).first()
+                if catalog:
+                    catalog.sort_order = item.get("sortOrder", 0)
+        return {}
+
+    @classmethod
+    def goods_catalog_batch_delete(cls, data):
+        """批量删除分类：接收 {ids: [...]}，有子分类的跳过"""
+        ids = data.get("ids", [])
+        session = get_session()
+        with session.begin():
+            deleted = []
+            skipped = []
+            for id in ids:
+                # 检查是否有子分类
+                children = session.query(GoodsCatalog).filter(
+                    GoodsCatalog.parentid == id
+                ).count()
+                if children > 0:
+                    skipped.append(id)
+                else:
+                    session.query(GoodsCatalog).filter(GoodsCatalog.id == id).delete()
+                    deleted.append(id)
+        return {"deleted": deleted, "skipped": skipped}

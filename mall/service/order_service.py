@@ -177,10 +177,10 @@ def admin_refund(order_no, data):
     return {'success': True, 'refundAmount': refund_amount}
 
 
-def pay_notify_v3(body_json, headers):
+def pay_notify_v3(body_json, headers, raw_body=''):
     """微信支付 APIv3 回调处理"""
     try:
-        result = WechatPayService.parse_notify(body_json, headers)
+        result = WechatPayService.parse_notify(body_json, headers, raw_body)
     except Exception as e:
         LOG.error("APIv3 回调处理失败: {}".format(e))
         return {'code': 'FAIL', 'message': str(e)}, 500

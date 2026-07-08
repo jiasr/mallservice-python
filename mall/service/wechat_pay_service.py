@@ -9,7 +9,9 @@ from mall.common.wechat_pay_utils import (
     generate_nonce,
     generate_timestamp,
     load_private_key,
+    load_public_key,
     sign_rsa,
+    verify_signature,
     build_authorization,
     build_jsapi_pay_sign,
     decrypt_aes_gcm,
@@ -36,6 +38,7 @@ class WechatPayService:
                 'wechat_app_id': cfg.app_id,
                 'wechat_mch_id': cfg.mch_id,
                 'wechat_mch_key': cfg.mch_key,
+                'wechat_apiv3_key': cfg.apiv3_key,
                 'wechat_notify_url': cfg.notify_url,
                 'wechat_private_key': cfg.private_key,
                 'wechat_certificate': cfg.certificate,
@@ -70,14 +73,14 @@ class WechatPayService:
         # 1. 读取基础配置
         app_id = cls._get_config('wechat_app_id')
         mch_id = cls._get_config('wechat_mch_id')
-        apiv3_key = cls._get_config('wechat_mch_key')
+        apiv3_key = cls._get_config('wechat_apiv3_key')
         notify_url = cls._get_config('wechat_notify_url')
 
         if not all([app_id, mch_id, apiv3_key]):
             missing = [k for k, v in [
                 ('wechat_app_id', app_id),
                 ('wechat_mch_id', mch_id),
-                ('wechat_mch_key', apiv3_key),
+                ('wechat_apiv3_key', apiv3_key),
             ] if not v]
             LOG.error("微信支付基础配置不完整: {}".format(missing))
             raise Exception('微信支付基础配置不完整: {}'.format(', '.join(missing)))
@@ -171,7 +174,7 @@ class WechatPayService:
 
         # 1. 读取配置
         mch_id = cls._get_config('wechat_mch_id')
-        apiv3_key = cls._get_config('wechat_mch_key')
+        apiv3_key = cls._get_config('wechat_apiv3_key')
         if not all([mch_id, apiv3_key]):
             raise Exception('微信支付基础配置不完整')
 
@@ -265,12 +268,13 @@ class WechatPayService:
             raise Exception("查询订单失败")
 
     @classmethod
-    def parse_notify(cls, body_json: dict, headers: dict):
+    def parse_notify(cls, body_json: dict, headers: dict, raw_body: str = ''):
         """APIv3: 解析回调通知，验签 + 解密
 
         Args:
             body_json: 回调请求体 (dict)
-            headers: 回调请求头 (需包含 Wechatpay-Signature 等)
+            headers: 回调请求头
+            raw_body: 原始请求体字符串（用于验签）
 
         Returns:
             dict: 解密后的支付结果数据
@@ -278,7 +282,30 @@ class WechatPayService:
         LOG.info("===== 微信支付 APIv3 回调 =====")
         LOG.info(body_json)
 
-        apiv3_key = cls._get_config('wechat_mch_key')
+        # 1. 验签（用 mch_key 验证 Wechatpay-Signature）
+        mch_key = cls._get_config('wechat_mch_key')
+        if mch_key and raw_body:
+            signature_b64 = headers.get('Wechatpay-Signature', '')
+            timestamp = headers.get('Wechatpay-Timestamp', '')
+            nonce = headers.get('Wechatpay-Nonce', '')
+            if all([signature_b64, timestamp, nonce]):
+                try:
+                    public_key = load_public_key(mch_key)
+                    message = "{}\n{}\n{}\n".format(timestamp, nonce, raw_body)
+                    if verify_signature(message, signature_b64, public_key):
+                        LOG.info("回调验签通过")
+                    else:
+                        raise Exception("签名验证失败")
+                except Exception as e:
+                    LOG.error("回调验签失败: {}".format(e))
+                    raise Exception("回调验签失败")
+            else:
+                LOG.warning("回调缺少验签头，跳过验签")
+        else:
+            LOG.warning("mch_key 未配置或缺少原始请求体，跳过验签")
+
+        # 2. 解密
+        apiv3_key = cls._get_config('wechat_apiv3_key')
         if not apiv3_key:
             raise Exception('APIv3 密钥未配置')
 

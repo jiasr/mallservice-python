@@ -102,9 +102,10 @@ class OrderPayNotify(Resource):
     # @deco_catch_view_exception("支付回调")
     def post(self):
         # APIv3: 请求体为 JSON，需要 headers 中的 Wechatpay-* 验签信息
+        raw_body = request.get_data(as_text=True)
         body_json = request.get_json(force=True, silent=True) or {}
         try:
-            order_service.pay_notify_v3(body_json, dict(request.headers))
+            order_service.pay_notify_v3(body_json, dict(request.headers), raw_body)
         except:
             LOG.info("sssss")
 

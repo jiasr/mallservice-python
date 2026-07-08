@@ -41,7 +41,8 @@ class WechatPayGet(Resource):
             if not cfg:
                 return {
                     'app_id': '', 'mch_id': '',
-                    'mch_key': '', 'notify_url': '',
+                    'mch_key': '', 'apiv3_key': '',
+                    'notify_url': '',
                     'wechat_private_key': '',
                     'wechat_certificate': '',
                     'wechat_cert_serial_no': '',
@@ -50,6 +51,7 @@ class WechatPayGet(Resource):
                 'app_id': cfg.app_id or '',
                 'mch_id': cfg.mch_id or '',
                 'mch_key': cfg.mch_key or '',
+                'apiv3_key': cfg.apiv3_key or '',
                 'notify_url': cfg.notify_url or '',
                 'wechat_private_key': cfg.private_key or '',
                 'wechat_certificate': cfg.certificate or '',
@@ -81,6 +83,8 @@ class WechatPaySave(Resource):
                 cfg.mch_id = data['mch_id']
             if 'mch_key' in data:
                 cfg.mch_key = data['mch_key']
+            if 'apiv3_key' in data:
+                cfg.apiv3_key = data['apiv3_key']
             if 'notify_url' in data:
                 cfg.notify_url = data['notify_url']
             if 'wechat_private_key' in data:
