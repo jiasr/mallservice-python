@@ -1,10 +1,54 @@
-"""库存Service层 - 处理入库业务逻辑"""
+"""进销存库存Service层 - 商品管理 + 入库业务"""
 from mall.common.common import deco_catch_view_exception, Fail
-from mall.db.models.Stock.sql import StockInOrderDao, StockLogDao
+from mall.db.models.Stock.sql import InvGoodsDao, StockInOrderDao, StockLogDao
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
+
+# ==================== 库存商品管理 ====================
+
+@deco_catch_view_exception("新增库存商品")
+def inv_goods_create(data):
+    """新增库存商品"""
+    result, error = InvGoodsDao.create(data)
+    if error:
+        raise Fail('INV_GOODS_CREATE_FAIL', None, error)
+    return result
+
+
+@deco_catch_view_exception("修改库存商品")
+def inv_goods_update(data):
+    """修改库存商品"""
+    goods_id = data.get('id')
+    result, error = InvGoodsDao.update(goods_id, data)
+    if error:
+        raise Fail('INV_GOODS_UPDATE_FAIL', None, error)
+    return result
+
+
+@deco_catch_view_exception("按条码查询库存商品")
+def inv_goods_by_barcode(barcode):
+    """按条码查询库存商品（PDA扫码用）"""
+    if not barcode:
+        raise Fail('PARAM_ERROR', None, '条码不能为空')
+    result = InvGoodsDao.get_by_barcode(barcode)
+    if not result:
+        raise Fail('INV_GOODS_NOT_FOUND', {'barcode': barcode}, '未找到该条码对应的商品')
+    return result
+
+
+@deco_catch_view_exception("查询库存商品列表")
+def inv_goods_list(params):
+    """分页查询库存商品"""
+    page_index = int(params.get('pageIndex', 1))
+    page_size = int(params.get('pageSize', 20))
+    keyword = params.get('keyword')
+    category = params.get('category')
+    return InvGoodsDao.get_list(page_index, page_size, keyword, category)
+
+
+# ==================== 入库单管理 ====================
 
 @deco_catch_view_exception("创建入库单")
 def stock_in_create(data):
@@ -58,8 +102,8 @@ def stock_in_detail(params):
 @deco_catch_view_exception("查询库存流水")
 def stock_log_list(params):
     """分页查询库存流水"""
-    sku_id = params.get('sku_id')
+    goods_id = params.get('goods_id')
     page_index = int(params.get('pageIndex', 1))
     page_size = int(params.get('pageSize', 20))
     biz_type = params.get('biz_type')
-    return StockLogDao.get_list(sku_id, page_index, page_size, biz_type)
+    return StockLogDao.get_list(goods_id, page_index, page_size, biz_type)

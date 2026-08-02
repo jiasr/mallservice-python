@@ -12,7 +12,7 @@ from mall.db.models.SystemConfig.model import SystemConfig
 from mall.db.models.StorageConfig.model import StorageConfig
 from mall.db.models.Region.model import Region
 from mall.db.models.Cart.model import Cart
-from mall.db.models.Stock.model import StockInOrder, StockInItem, StockLog
+from mall.db.models.Stock.model import InvGoods, StockInOrder, StockInItem, StockLog
 from mall.db.models.Admin.adminsql import AdminUserDao
 from oslo_log import log as logging
 import uuid
@@ -49,6 +49,7 @@ def table_sync():
         BASE.metadata.tables["t_mall_freight_template"],
         BASE.metadata.tables["t_mall_freight_region"],
         BASE.metadata.tables["regions"],
+        BASE.metadata.tables["t_mall_inv_goods"],
         BASE.metadata.tables["t_mall_stock_in_order"],
         BASE.metadata.tables["t_mall_stock_in_item"],
         BASE.metadata.tables["t_mall_stock_log"],

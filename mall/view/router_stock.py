@@ -1,5 +1,5 @@
 # -*- encoding : utf-8 -*-
-"""库存管理相关API路由"""
+"""进销存库存管理相关API路由"""
 import json
 
 from flask import Blueprint, request
@@ -7,38 +7,47 @@ from flask_restx import Namespace, Resource
 from oslo_log import log as logging
 
 from mall.service import stock_in_service
-from mall.service import goods_service
 from mall.common.common import admin_required
 
 LOG = logging.getLogger(__name__)
 
 app_stock = Blueprint('stock', __name__)
-ns_stock = Namespace("stock", description="库存管理接口", path="/v1/stock")
+ns_stock = Namespace("stock", description="进销存库存管理接口", path="/v1/stock")
 
 
-# ==================== 按条码查询SKU ====================
-@ns_stock.route('/sku/by-barcode', methods=['GET'])
-class SkuByBarcode(Resource):
-    """根据条形码查询SKU信息"""
+# ==================== 库存商品管理 ====================
+@ns_stock.route('/goods/create', methods=['POST'])
+class InvGoodsCreate(Resource):
+    """新增库存商品"""
+    @admin_required
+    def post(self):
+        data = json.loads(request.data)
+        return stock_in_service.inv_goods_create(data)
+
+
+@ns_stock.route('/goods/update', methods=['POST'])
+class InvGoodsUpdate(Resource):
+    """修改库存商品"""
+    @admin_required
+    def post(self):
+        data = json.loads(request.data)
+        return stock_in_service.inv_goods_update(data)
+
+
+@ns_stock.route('/goods/by-barcode', methods=['GET'])
+class InvGoodsByBarcode(Resource):
+    """按条码查询库存商品（PDA扫码用）"""
     def get(self):
         barcode = request.args.get('barcode', '').strip()
-        if not barcode:
-            return {"flag": False, "errCode": "PARAM_ERROR", "errMessage": "条码不能为空", "resData": None}
-        return goods_service.sku_by_barcode(barcode)
+        return stock_in_service.inv_goods_by_barcode(barcode)
 
 
-# ==================== 库存查询 ====================
-@ns_stock.route('/sku/query', methods=['GET'])
-class SkuQuery(Resource):
-    """查询SKU库存（支持按条码或SKU ID）"""
+@ns_stock.route('/goods/list', methods=['GET'])
+class InvGoodsList(Resource):
+    """库存商品列表"""
     def get(self):
-        barcode = request.args.get('barcode', '').strip()
-        sku_id = request.args.get('skuId', '').strip()
-        if barcode:
-            return goods_service.sku_by_barcode(barcode)
-        elif sku_id:
-            return goods_service.sku_detail(sku_id)
-        return {"flag": False, "errCode": "PARAM_ERROR", "errMessage": "请提供条码或SKU ID", "resData": None}
+        params = request.args.to_dict()
+        return stock_in_service.inv_goods_list(params)
 
 
 # ==================== 入库单管理 ====================
