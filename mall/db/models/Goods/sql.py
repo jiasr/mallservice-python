@@ -124,6 +124,7 @@ class GoodsSpuDao:
                         "skuId": sku.sku_id,
                         "specInfo": spec_info,
                         "price": sku.price,
+                        "barcode": sku.barcode or "",
                         "stock": sku.stock_quantity,
                         "thumb": cls._img_url(sku.sku_image) if sku.sku_image else "",
                     })
@@ -270,8 +271,6 @@ class GoodsSpuDao:
                 category_id= data.get("categoryId", ""),
                 min_sale_price=0,
                 max_sale_price=0,
-                min_line_price=0,
-                max_line_price=0,
                 stock_quantity=0,
                 sold_num=0,
                 is_put_on_sale=int(data.get("isPutOnSale", 0)),
@@ -284,8 +283,6 @@ class GoodsSpuDao:
 
             min_price = None
             max_price = None
-            min_lprice = None
-            max_lprice = None
             total_stock = 0
 
             # 保存规格
@@ -308,7 +305,6 @@ class GoodsSpuDao:
             for sk in skus_data:
                 sku_id = sk.get("skuId")
                 price = int(sk.get("price", 0))
-                line_price = int(sk.get("linePrice", 0))
                 stock = int(sk.get("stockQuantity", 0))
                 spec_info = sk.get("specInfo", [])
 
@@ -316,10 +312,6 @@ class GoodsSpuDao:
                     min_price = price
                 if max_price is None or price > max_price:
                     max_price = price
-                if min_lprice is None or line_price < min_lprice:
-                    min_lprice = line_price
-                if max_lprice is None or line_price > max_lprice:
-                    max_lprice = line_price
                 total_stock += stock
 
                 sku_dbid = uuid.uuid4().hex
@@ -329,7 +321,7 @@ class GoodsSpuDao:
                     spu_id=spu.id,
                     sku_image=sk.get("skuImage", ""),
                     price=price,
-                    line_price=line_price,
+                    barcode=sk.get("barcode", ""),
                     stock_quantity=stock,
                     spec_info=json.dumps(spec_info),
                 )
@@ -338,8 +330,6 @@ class GoodsSpuDao:
             # 回写 SPU 价格/库存汇总
             spu.min_sale_price = min_price or 0
             spu.max_sale_price = max_price or 0
-            spu.min_line_price = min_lprice or 0
-            spu.max_line_price = max_lprice or 0
             spu.stock_quantity = total_stock
             session.flush()
 
@@ -376,6 +366,64 @@ class GoodsSpuDao:
             if spu:
                 session.delete(spu)
         return {"success": True}
+
+    @classmethod
+    def get_sku_by_barcode(cls, barcode):
+        """根据条形码查询SKU（含SPU信息）"""
+        session = get_session()
+        with session.begin():
+            sku = session.query(GoodsSku).filter(
+                GoodsSku.barcode == barcode
+            ).first()
+            if not sku:
+                return None
+            spu = session.query(GoodsSpu).filter(
+                GoodsSpu.id == sku.spu_id
+            ).first()
+            spec_info = _safe_json_loads(sku.spec_info)
+            imgs = _safe_json_loads(spu.images) if spu else []
+            return {
+                'skuId': sku.sku_id,
+                'skuDbId': sku.id,
+                'spuId': spu.spu_id if spu else '',
+                'spuDbId': sku.spu_id,
+                'spuTitle': spu.title if spu else '',
+                'barcode': sku.barcode or '',
+                'price': sku.price or 0,
+                'stockQuantity': sku.stock_quantity or 0,
+                'specInfo': spec_info,
+                'skuImage': sku.sku_image or '',
+                'spuImage': cls._img_url(imgs[0]) if imgs else '',
+            }
+
+    @classmethod
+    def get_sku_detail(cls, sku_id):
+        """根据SKU ID查询SKU详情"""
+        session = get_session()
+        with session.begin():
+            sku = session.query(GoodsSku).filter(
+                GoodsSku.sku_id == sku_id
+            ).first()
+            if not sku:
+                return None
+            spu = session.query(GoodsSpu).filter(
+                GoodsSpu.id == sku.spu_id
+            ).first()
+            spec_info = _safe_json_loads(sku.spec_info)
+            imgs = _safe_json_loads(spu.images) if spu else []
+            return {
+                'skuId': sku.sku_id,
+                'skuDbId': sku.id,
+                'spuId': spu.spu_id if spu else '',
+                'spuDbId': sku.spu_id,
+                'spuTitle': spu.title if spu else '',
+                'barcode': sku.barcode or '',
+                'price': sku.price or 0,
+                'stockQuantity': sku.stock_quantity or 0,
+                'specInfo': spec_info,
+                'skuImage': sku.sku_image or '',
+                'spuImage': cls._img_url(imgs[0]) if imgs else '',
+            }
 
     @classmethod
     def put_on_sale(cls, id):

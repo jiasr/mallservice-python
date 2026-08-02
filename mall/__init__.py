@@ -8,6 +8,9 @@ import flask_excel
 import logging
 import json
 
+import socket
+import threading
+
 from mall.view.router_user import app_user,ns_user
 from mall.view.router_address import app_address,ns_address
 from mall.view.router_goodscatalog import app_goodscatalog,ns_goodscatalog
@@ -20,6 +23,9 @@ from mall.view.router_cart import app_cart,ns_cart
 from mall.view.router_order import app_order,ns_order
 from mall.view.router_freight import app_freight,ns_freight
 from mall.view.router_wechatpay import app_wechatpay,ns_wechatpay
+from mall.view.router_stock import app_stock,ns_stock
+
+from mall.common.gds_login import query_barcode
 
 
 LOG = logging.getLogger(__name__)
@@ -51,6 +57,49 @@ class CustomJSONProvider:
     def loads(self, s, **kwargs):
         return json.loads(s, **kwargs)
 
+def handle_tcp_client(client_socket, address):
+    LOG.info(f"TCP连接来自 {address}")
+    try:
+        data = client_socket.recv(1024)
+        if data:
+            message = data.decode('utf-8').strip()
+            LOG.info(f"接收到条码: {message}")
+            query_barcode(message)
+
+            # 🔥 在这里调用你的业务处理逻辑
+            # 例如：process_barcode(message)
+
+            client_socket.send(b"OK\n")
+        else:
+            LOG.warning(f"来自 {address} 的数据为空")
+    except Exception as e:
+        LOG.error(f"处理TCP数据错误: {e}")
+    finally:
+        client_socket.close()
+
+def start_tcp_server(host='0.0.0.0', port=5001):
+    """在后台线程中运行的TCP服务器"""
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind((host, port))
+    server.listen(5)
+    LOG.info(f"TCP Socket服务器已启动，监听 {host}:{port}")
+
+    while True:
+        try:
+            client, addr = server.accept()
+            # 每个客户端连接开一个新线程处理
+            t = threading.Thread(target=handle_tcp_client, args=(client, addr))
+            t.daemon = True
+            t.start()
+        except Exception as e:
+            LOG.error(f"TCP服务器异常: {e}")
+            break
+    server.close()
+
+# 1. 先启动TCP服务器线程（daemon=True，主程序退出时自动结束）
+tcp_thread = threading.Thread(target=start_tcp_server, daemon=True)
+tcp_thread.start()
 
 
 app = Flask(__name__)
@@ -62,6 +111,13 @@ api = Api(app, version='1.0', title='inspur cloud rest api doc', description='in
 
 @app.before_request
 def log_req1():
+
+    LOG.error(f"handle_raw_data")
+    # """在请求被路由之前拦截，处理非标准请求"""
+    # 检查请求内容是否是裸数据（没有HTTP方法标记）
+    # 注意：这个方法只能捕获到包含至少部分HTTP头的请求
+    # 对于完全裸的TCP数据，Werkzeug仍然会先报错
+
     LOG.info(request.path)
 
 @app.after_request
@@ -81,6 +137,10 @@ app.register_blueprint(app_cart, url_prefix="/v1/cart")
 app.register_blueprint(app_order, url_prefix="/v1/order")
 app.register_blueprint(app_freight, url_prefix="/v1/order/admin/freight")
 app.register_blueprint(app_wechatpay, url_prefix="/v1/admin")
+app.register_blueprint(app_stock, url_prefix="/v1/stock")
+
+
+
 
 
 
@@ -97,6 +157,7 @@ api.add_namespace(ns_cart)
 api.add_namespace(ns_order)
 api.add_namespace(ns_freight)
 api.add_namespace(ns_wechatpay)
+api.add_namespace(ns_stock)
 
 # 启动时自动执行数据库迁移
 try:

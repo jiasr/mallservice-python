@@ -25,8 +25,6 @@ CREATE TABLE IF NOT EXISTS t_mall_goods_spu (
     update_time     DATETIME DEFAULT NOW() ON UPDATE NOW() COMMENT '更新时间',
     min_sale_price  INT DEFAULT 0                  COMMENT '最低售价(分)',
     max_sale_price  INT DEFAULT 0                  COMMENT '最高售价(分)',
-    min_line_price  INT DEFAULT 0                  COMMENT '最低划线价(分)',
-    max_line_price  INT DEFAULT 0                  COMMENT '最高划线价(分)',
     stock_quantity  INT DEFAULT 0                  COMMENT '总库存'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品SPU表';
 
@@ -36,7 +34,6 @@ CREATE TABLE IF NOT EXISTS t_mall_goods_sku (
     spu_id          VARCHAR(255)                  COMMENT '关联SPU',
     sku_image       VARCHAR(500)                  COMMENT 'SKU图片',
     price           INT DEFAULT 0                 COMMENT '销售价格(分)',
-    line_price      INT DEFAULT 0                 COMMENT '划线价格(分)',
     stock_quantity  INT DEFAULT 0                 COMMENT '库存数量',
     sold_quantity   INT DEFAULT 0                 COMMENT '已售数量',
     spec_info       TEXT                          COMMENT '规格信息(JSON数组)',

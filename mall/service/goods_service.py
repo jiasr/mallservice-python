@@ -62,3 +62,23 @@ def admin_goods_put_on_sale(id):
 @deco_catch_view_exception("下架商品")
 def admin_goods_pull_off_sale(id):
     return GoodsSpuDao.pull_off_sale(id)
+
+
+# ==================== PDA 端：条码查询 ====================
+
+@deco_catch_view_exception("根据条码查询SKU")
+def sku_by_barcode(barcode):
+    """根据条形码查询SKU信息（PDA扫码用）"""
+    result = GoodsSpuDao.get_sku_by_barcode(barcode)
+    if not result:
+        raise Fail('SKU_NOT_FOUND', {'barcode': barcode}, '未找到该条码对应的商品')
+    return result
+
+
+@deco_catch_view_exception("根据SKU ID查询")
+def sku_detail(sku_id):
+    """根据SKU ID查询SKU详情"""
+    result = GoodsSpuDao.get_sku_detail(sku_id)
+    if not result:
+        raise Fail('SKU_NOT_FOUND', {'skuId': sku_id}, '未找到该SKU')
+    return result

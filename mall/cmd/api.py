@@ -18,11 +18,16 @@ def load_config():
     LOG.info(app.url_map)
 
 
+
+
 def main():
     load_config()
 
     # 自动初始化数据库（建表 + 种子数据）
     #init_all()
+
+
+
 
     app.run(host=CONF.api_mall_listen, port=CONF.api_mall_listen_port, threaded=True)
 

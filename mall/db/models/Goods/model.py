@@ -39,8 +39,6 @@ class GoodsSpu(BASE, SerializerMixin):
 
     min_sale_price = Column(Integer, default=0, comment='最低售价(分)')
     max_sale_price = Column(Integer, default=0, comment='最高售价(分)')
-    min_line_price = Column(Integer, default=0, comment='最低划线价(分)')
-    max_line_price = Column(Integer, default=0, comment='最高划线价(分)')
     stock_quantity = Column(Integer, default=0, comment='总库存')
     freight_template_id = Column(Integer, default=0, comment='运费模板ID，0=使用默认模板')
     delivery_type = Column(Integer, default=0, comment='配送方式 0=快递 1=同城配送 2=自提')
@@ -55,7 +53,7 @@ class GoodsSku(BASE, SerializerMixin):
     spu_id = Column(String(255), ForeignKey('t_mall_goods_spu.id'), comment='关联SPU')
     sku_image = Column(String(500), comment='SKU图片')
     price = Column(Integer, default=0, comment='销售价格(分)')
-    line_price = Column(Integer, default=0, comment='划线价格(分)')
+    barcode = Column(String(64), default='', comment='国际编码(条形码/EAN-13)')
     stock_quantity = Column(Integer, default=0, comment='库存数量')
     sold_quantity = Column(Integer, default=0, comment='已售数量')
     spec_info = Column(Text, comment='规格信息(JSON数组)')
