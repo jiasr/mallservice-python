@@ -42,6 +42,22 @@ class InvGoodsByBarcode(Resource):
         return stock_in_service.inv_goods_by_barcode(barcode)
 
 
+@ns_stock.route('/goods/gds-query', methods=['GET'])
+class InvGoodsGdsQuery(Resource):
+    """调用 GDS 查询条码商品信息（自动补全新商品）"""
+    def get(self):
+        barcode = request.args.get('barcode', '').strip()
+        return stock_in_service.inv_goods_gds_query(barcode)
+
+
+@ns_stock.route('/goods/detail', methods=['GET'])
+class InvGoodsDetail(Resource):
+    """库存商品详情"""
+    def get(self):
+        params = request.args.to_dict()
+        return stock_in_service.inv_goods_detail(params)
+
+
 @ns_stock.route('/goods/list', methods=['GET'])
 class InvGoodsList(Resource):
     """库存商品列表"""

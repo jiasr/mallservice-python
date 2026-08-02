@@ -1,12 +1,24 @@
 """进销存库存Service层 - 商品管理 + 入库业务"""
 from mall.common.common import deco_catch_view_exception, Fail
 from mall.db.models.Stock.sql import InvGoodsDao, StockInOrderDao, StockLogDao
+from mall.service.gds_service import gds_query_barcode
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
 
 # ==================== 库存商品管理 ====================
+
+@deco_catch_view_exception("GDS条码商品查询")
+def inv_goods_gds_query(barcode):
+    """调用 GDS 查询条码商品信息（自动补全新商品）"""
+    if not barcode:
+        raise Fail('PARAM_ERROR', None, '条码不能为空')
+    result = gds_query_barcode(barcode)
+    if not result:
+        raise Fail('GDS_NOT_FOUND', {'barcode': barcode}, 'GDS未找到该条码商品信息')
+    return result
+
 
 @deco_catch_view_exception("新增库存商品")
 def inv_goods_create(data):
@@ -35,6 +47,18 @@ def inv_goods_by_barcode(barcode):
     result = InvGoodsDao.get_by_barcode(barcode)
     if not result:
         raise Fail('INV_GOODS_NOT_FOUND', {'barcode': barcode}, '未找到该条码对应的商品')
+    return result
+
+
+@deco_catch_view_exception("查询库存商品详情")
+def inv_goods_detail(params):
+    """按ID查询库存商品详情"""
+    goods_id = int(params.get('id', 0))
+    if not goods_id:
+        raise Fail('PARAM_ERROR', None, '商品ID不能为空')
+    result = InvGoodsDao.get_by_id(goods_id)
+    if not result:
+        raise Fail('INV_GOODS_NOT_FOUND', None, '商品不存在')
     return result
 
 
