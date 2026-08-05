@@ -39,6 +39,22 @@ def inv_goods_update(data):
     return result
 
 
+@deco_catch_view_exception("删除库存商品")
+def inv_goods_delete(data):
+    """删除库存商品。
+
+    有入库记录的也允许删除，返回 {deleted, hasStockRecord}：
+    hasStockRecord 用于前端提示"该商品已有入库记录，已强制删除"。
+    """
+    goods_id = data.get('id')
+    if not goods_id:
+        raise Fail('PARAM_ERROR', None, '商品ID不能为空')
+    result, error = InvGoodsDao.delete(goods_id)
+    if error:
+        raise Fail('INV_GOODS_DELETE_FAIL', None, error)
+    return result
+
+
 @deco_catch_view_exception("按条码查询库存商品")
 def inv_goods_by_barcode(barcode):
     """按条码查询库存商品（PDA扫码用）"""

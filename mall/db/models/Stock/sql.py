@@ -83,6 +83,27 @@ class InvGoodsDao:
             return cls._format(goods)
 
     @classmethod
+    def delete(cls, goods_id):
+        """删除商品。
+
+        有入库记录/库存流水的商品也允许删除（物理删除），返回 has_stock_record 标记，
+        供上层提示"该商品已有入库记录"。
+        注意：数据库未对该商品定义外键约束，物理删除不会因外键失败。
+        """
+        session = get_session()
+        with session.begin():
+            goods = session.query(InvGoods).filter(InvGoods.id == goods_id).first()
+            if not goods:
+                return None, '商品不存在'
+            # 检查是否有相关入库明细（仅用于提示，不阻止删除）
+            has_item = session.query(StockInItem).filter(
+                StockInItem.goods_id == goods_id
+            ).first()
+            session.delete(goods)
+            session.flush()
+            return {'deleted': True, 'hasStockRecord': bool(has_item)}, None
+
+    @classmethod
     def get_by_id(cls, goods_id):
         """按ID查询商品"""
         session = get_session()

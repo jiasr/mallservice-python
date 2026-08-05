@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS `t_mall_inv_goods` (
     KEY `idx_category` (`category`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='进销存独立库存商品表';
 
+-- 入库单主表：增加入库总金额
+ALTER TABLE `t_mall_stock_in_order`
+    ADD COLUMN `total_amount` DECIMAL(10,2) DEFAULT 0 COMMENT '入库总金额' AFTER `total_quantity`;
+
 -- 入库明细表：改为关联独立库存商品
 ALTER TABLE `t_mall_stock_in_item`
     ADD COLUMN `goods_id` INT NOT NULL DEFAULT 0 COMMENT '关联t_mall_inv_goods.id' AFTER `order_id`,

@@ -6,6 +6,7 @@ import os
 import random
 import re
 import string
+import threading
 
 import requests
 from oslo_log import log as logging
@@ -14,6 +15,38 @@ LOG = logging.getLogger(__name__)
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "..", "common", "gds_token.json")
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/138.0.0.0"
+
+# OCR 实例全局复用（懒加载），避免每次登录重复加载模型
+_OCR_INSTANCE = None
+_OCR_LOCK = threading.Lock()
+
+
+def _get_ocr():
+    """获取全局 OCR 实例（懒加载单例）"""
+    global _OCR_INSTANCE
+    if _OCR_INSTANCE is None:
+        with _OCR_LOCK:
+            if _OCR_INSTANCE is None:
+                LOG.info("[GDS] 首次初始化OCR模型（约数秒）...")
+                _ensure_dll()
+                import ddddocr
+                _OCR_INSTANCE = ddddocr.DdddOcr(show_ad=False)
+                LOG.info("[GDS] OCR模型初始化完成")
+    return _OCR_INSTANCE
+
+
+def _ensure_dll():
+    """显式添加 onnxruntime 的 DLL 搜索路径，解决服务进程 DLL 加载失败问题"""
+    try:
+        import onnxruntime.capi
+        capi_dir = os.path.dirname(onnxruntime.capi.__file__)
+        if os.path.exists(os.path.join(capi_dir, "onnxruntime.dll")):
+            if hasattr(os, "add_dll_directory"):
+                os.add_dll_directory(capi_dir)
+            else:
+                os.environ["PATH"] = capi_dir + os.pathsep + os.environ.get("PATH", "")
+    except Exception as e:
+        LOG.warning("[GDS] 添加onnxruntime DLL路径失败: %s", e)
 
 
 def _gen_pkce():
@@ -62,9 +95,8 @@ def gds_login():
                 timeout=15,
             ).json()
 
-            # 3. OCR 识别验证码
-            import ddddocr
-            vcode = ddddocr.DdddOcr(show_ad=False).classification(base64.b64decode(cap["Base64"])).strip()
+            # 3. OCR 识别验证码（复用全局实例，避免重复加载模型）
+            vcode = _get_ocr().classification(base64.b64decode(cap["Base64"])).strip()
 
             # 4. 提交登录
             r2 = sess.post(
@@ -183,24 +215,71 @@ def gds_query_barcode(barcode):
             if detail.get("Code") == 1 and detail.get("Data", {}).get("Items"):
                 items = detail["Data"]["Items"]
                 if items:
+                    # 国标信息
                     if items[0].get("ProductDetailsViewInfoNationalList"):
                         di = items[0]["ProductDetailsViewInfoNationalList"][0]
-                        result["name"] = di.get('BrandName', result["name"])
-                        result["brand"] = di.get('BrandName', result["brand"])
+                        # 商品名优先用注册名称(RegulatedProductName)，品牌名作为品牌
+                        reg_name = di.get('RegulatedProductName', '')
+                        brand_name = di.get('BrandName', '')
+                        if reg_name and str(reg_name).strip() not in ['', 'None']:
+                            result["name"] = reg_name
+                            result["reg_name"] = reg_name
+                        else:
+                            result["name"] = brand_name or result["name"]
+                        result["brand"] = brand_name or result["brand"]
                         result["spec"] = di.get('NetContentStatement', result["spec"])
                         result["category"] = di.get('GlobalProductCategoryName', result["category"])
                         result["origin"] = di.get('CountryOfOriginCodeDescription', '')
+                        result["gpc_code"] = di.get('GlobalProductCategoryCode', '')
+                        result["product_type"] = di.get('ProductType', '')
+                        nc = di.get('NetContent')
+                        ncu = di.get('NetContentUnitofMeasureDescription', '')
+                        if nc is not None and str(nc).strip() not in ['', '0', 'None']:
+                            result["net_content"] = f"{nc} {ncu}".strip()
+                        if di.get('ProductDescription'):
+                            result["description"] = di.get('ProductDescription', '')
                         if di.get('ProductImageUrls'):
                             urls = [f"https://www.gds.org.cn{u['Url']}" for u in di['ProductImageUrls'] if u.get('Url')]
                             if urls:
                                 result["image_url"] = urls[0]
+                                result["image_count"] = len(urls)
 
+                    # Studio 信息（厂商、尺寸、重量、使用说明等）
                     studio = items[0].get("ProductDetailsViewInfoStudio")
                     if studio:
                         result["manufacturer"] = studio.get('ManufacturerName', result["manufacturer"])
                         result["category"] = studio.get('GlobalProductCategoryName', result["category"])
                         result["spec"] = studio.get('NetContentStatement', result["spec"])
-        LOG.info("[GDS] 条码 %s 查询完成", barcode)
+                        result["reg_name"] = studio.get('RegulatedProductName', result.get("reg_name", ''))
+
+                        # 尺寸重量（过滤空值）
+                        dim_map = {
+                            "width": ("Width", "WidthUnitofMeasureDescription"),
+                            "height": ("Height", "HeightUnitofMeasureDescription"),
+                            "depth": ("DepthLength", "DepthUnitofMeasureDescription"),
+                            "gross_weight": ("GrossWeight", "GrossWeightUnitofMeasureDescription"),
+                            "net_weight": ("NetWeight", "NetWeightUnitofMeasureDescription"),
+                        }
+                        for key, (val_key, unit_key) in dim_map.items():
+                            val = studio.get(val_key)
+                            unit = studio.get(unit_key, '')
+                            if val is not None and str(val).strip() not in ['', '0', 'None', '0.0']:
+                                result[key] = f"{val} {unit}".strip()
+
+                        # 其他可读字段
+                        extra_fields = [
+                            'PackagingTypeCodeDescription', 'RegulatoryPermitIdentification',
+                            'CertificationStandard', 'ProductGrade', 'BrandOwnerName',
+                            'ConsumerUsageInstructions', 'ConsumerStorageInstructions',
+                            'WarningInformation', 'FeaturesandBenefits', 'AdditionalProductDescription',
+                            'MinimumDaysofShelfLifefromProduction', 'SellingUnitofMeasureDescription',
+                            'ModelNumber', 'SubBrandName', 'ProductTypeDescription',
+                        ]
+                        for f in extra_fields:
+                            val = studio.get(f)
+                            if val and str(val).strip() not in ['', 'None']:
+                                result[f] = val
+        LOG.info("[GDS] 条码 %s 查询完成，共获取 %d 个字段", barcode, len(result))
         return result
     except Exception as e:
         LOG.warning("[GDS] 查询异常: %s", e)

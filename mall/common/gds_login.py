@@ -29,7 +29,7 @@ def gen_pkce():
 def do_login():
     LOG.info("[GDS] 开始登录流程")
     sess = requests.Session()
-    for attempt in range(30):
+    for attempt in range(3):
         LOG.info("[GDS] 登录尝试第 %d 次", attempt + 1)
 
         # 1. 获取登录页 CSRF Token

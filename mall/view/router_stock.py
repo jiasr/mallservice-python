@@ -34,6 +34,15 @@ class InvGoodsUpdate(Resource):
         return stock_in_service.inv_goods_update(data)
 
 
+@ns_stock.route('/goods/delete', methods=['POST'])
+class InvGoodsDelete(Resource):
+    """删除库存商品"""
+    @admin_required
+    def post(self):
+        data = json.loads(request.data)
+        return stock_in_service.inv_goods_delete(data)
+
+
 @ns_stock.route('/goods/by-barcode', methods=['GET'])
 class InvGoodsByBarcode(Resource):
     """按条码查询库存商品（PDA扫码用）"""
