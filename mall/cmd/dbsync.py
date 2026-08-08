@@ -49,7 +49,7 @@ def table_sync():
         BASE.metadata.tables["t_mall_freight_template"],
         BASE.metadata.tables["t_mall_freight_region"],
         BASE.metadata.tables["regions"],
-        BASE.metadata.tables["t_mall_inv_goods"],
+        BASE.metadata.tables["t_mall_stock_goods"],
         BASE.metadata.tables["t_mall_stock_in_order"],
         BASE.metadata.tables["t_mall_stock_in_item"],
         BASE.metadata.tables["t_mall_stock_log"],

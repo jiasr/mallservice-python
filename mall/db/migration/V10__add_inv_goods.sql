@@ -1,4 +1,5 @@
 -- 进销存独立库存商品表：完全独立于商城SKU
+-- 注意：表名已于 V11 迁移改为 stock_goods
 CREATE TABLE IF NOT EXISTS `t_mall_inv_goods` (
     `id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     `barcode` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '商品条码',

@@ -8,7 +8,7 @@ from mall.db.models.base import BASE, DbBase
 
 class InvGoods(BASE, DbBase):
     """进销存独立库存商品表（完全独立于商城SKU）"""
-    __tablename__ = 't_mall_inv_goods'
+    __tablename__ = 't_mall_stock_goods'
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键ID')
     barcode = Column(String(64), nullable=False, default='', comment='商品条码')
@@ -25,6 +25,7 @@ class InvGoods(BASE, DbBase):
     shelf_life_days = Column(Integer, default=0, comment='保质期天数')
     image_url = Column(String(500), default='', comment='商品图片')
     remark = Column(String(500), default='', comment='备注')
+    text = Column(Text, default='', comment='从商品库请求到的原始数据(JSON)')
     status = Column(SmallInteger, default=1, comment='状态: 1=启用 0=停用')
     create_time = Column(DateTime, default=datetime.now)
     update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)
@@ -53,7 +54,7 @@ class StockInItem(BASE, DbBase):
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键ID')
     order_id = Column(Integer, nullable=False, comment='关联入库单ID')
-    goods_id = Column(Integer, nullable=False, default=0, comment='关联t_mall_inv_goods.id')
+    goods_id = Column(Integer, nullable=False, default=0, comment='关联t_mall_stock_goods.id')
     quantity = Column(Integer, default=0, comment='入库数量')
     cost_price = Column(Numeric(10, 2), default=0, comment='入库成本价')
     batch_no = Column(String(64), default='', comment='批次号')
@@ -66,7 +67,7 @@ class StockLog(BASE, DbBase):
     __tablename__ = 't_mall_stock_log'
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键ID')
-    goods_id = Column(Integer, nullable=False, default=0, comment='关联t_mall_inv_goods.id')
+    goods_id = Column(Integer, nullable=False, default=0, comment='关联t_mall_stock_goods.id')
     change_qty = Column(Integer, nullable=False, comment='变动数量')
     balance_after = Column(Integer, default=0, comment='变动后结存数量')
     biz_type = Column(String(32), nullable=False, comment='业务类型: stock_in/stock_out/stock_check')

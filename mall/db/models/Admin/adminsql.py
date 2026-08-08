@@ -227,6 +227,11 @@ class AdminUserDao:
                 # 配送管理子菜单
                 (26, "运费模板", "/freight/list", "List", 12, 1, ""),
                 (27, "添加模板", "/freight/add", "Plus", 12, 2, "freight:add"),
+
+                # 进销存顶级菜单（入库单、库存流水已整合进"库存商品"页内Tab）
+                (28, "进销存", "/stock/goods/list", "Box", 0, 10, ""),
+                # 进销存子菜单
+                (29, "库存商品", "/stock/goods/list", "List", 28, 1, ""),
             ]
 
             for (mid, name, frontpath, icon, parent_id, sort_order, permission) in default_menus:

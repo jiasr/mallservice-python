@@ -1,4 +1,6 @@
 """进销存库存Service层 - 商品管理 + 入库业务"""
+import json
+
 from mall.common.common import deco_catch_view_exception, Fail
 from mall.db.models.Stock.sql import InvGoodsDao, StockInOrderDao, StockLogDao
 from mall.service.gds_service import gds_query_barcode
@@ -17,6 +19,8 @@ def inv_goods_gds_query(barcode):
     result = gds_query_barcode(barcode)
     if not result:
         raise Fail('GDS_NOT_FOUND', {'barcode': barcode}, 'GDS未找到该条码商品信息')
+    # 附带完整原始数据，前端新建商品时回传 gdsRaw 即可存入商品的 text 字段
+    result['gdsRaw'] = json.dumps(result, ensure_ascii=False)
     return result
 
 

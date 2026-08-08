@@ -1,4 +1,5 @@
 """进销存库存数据访问层"""
+import json
 from datetime import datetime
 
 from sqlalchemy import func, desc, or_
@@ -12,6 +13,69 @@ LOG = logging.getLogger(__name__)
 
 class InvGoodsDao:
     """进销存独立库存商品数据访问"""
+
+    @staticmethod
+    def _coerce_gds_raw(data):
+        """把 GDS 原始数据转成 text 字段的 JSON 字符串。
+
+        支持三种来源：
+        - data['gds_raw'] / data['gdsRaw']: dict -> json.dumps
+        - data['gds_raw'] / data['gdsRaw']: 已序列化的 str -> 原样返回
+        - data['text']: 直接传的字符串
+        """
+        raw = data.get('gds_raw', data.get('gdsRaw', data.get('text', '')))
+        if raw is None:
+            return ''
+        if isinstance(raw, dict):
+            try:
+                return json.dumps(raw, ensure_ascii=False)
+            except Exception:
+                return ''
+        return str(raw)
+
+    @staticmethod
+    def _extract_image_url(data):
+        """从 gds_raw/text 中提取商品图片 URL。
+
+        优先使用 data['image_url']，否则从 GDS 原始 JSON 里解析 image_url。
+        """
+        direct = data.get('image_url')
+        if direct:
+            return str(direct)
+        raw = data.get('gds_raw', data.get('gdsRaw', data.get('text', '')))
+        if not raw:
+            return ''
+        try:
+            if isinstance(raw, str):
+                raw = json.loads(raw)
+            if isinstance(raw, dict):
+                url = raw.get('image_url') or raw.get('imageUrl')
+                return str(url) if url else ''
+        except Exception:
+            return ''
+        return ''
+
+    @staticmethod
+    def _extract_unit(data):
+        """从 GDS 原始数据里提取单位。
+
+        优先使用 data['unit']，否则从 gds_raw/text 里取 PackagingTypeCodeDescription（包装类型）。
+        """
+        direct = data.get('unit')
+        if direct:
+            return str(direct).strip()
+        raw = data.get('gds_raw', data.get('gdsRaw', data.get('text', '')))
+        if not raw:
+            return ''
+        try:
+            if isinstance(raw, str):
+                raw = json.loads(raw)
+            if isinstance(raw, dict):
+                unit = raw.get('PackagingTypeCodeDescription') or raw.get('packaging_type_code_description')
+                return str(unit).strip() if unit else ''
+        except Exception:
+            return ''
+        return ''
 
     @classmethod
     def create(cls, data):
@@ -28,7 +92,7 @@ class InvGoodsDao:
                 name=data.get('name', '').strip(),
                 brand=data.get('brand', '').strip(),
                 spec=data.get('spec', '').strip(),
-                unit=data.get('unit', '').strip(),
+                unit=cls._extract_unit(data),
                 category=data.get('category', '').strip(),
                 cost_price=data.get('cost_price', 0),
                 sale_price=data.get('sale_price', 0),
@@ -36,8 +100,9 @@ class InvGoodsDao:
                 warn_threshold=data.get('warn_threshold', 0),
                 supplier=data.get('supplier', '').strip(),
                 shelf_life_days=data.get('shelf_life_days', 0),
-                image_url=data.get('image_url', ''),
+                image_url=cls._extract_image_url(data),
                 remark=data.get('remark', ''),
+                text=cls._coerce_gds_raw(data),
                 status=data.get('status', 1),
             )
             session.add(goods)
@@ -67,6 +132,8 @@ class InvGoodsDao:
             for field in ['cost_price', 'sale_price', 'warn_threshold', 'shelf_life_days', 'status']:
                 if field in data:
                     setattr(goods, field, data.get(field, 0))
+            if 'gds_raw' in data or 'gdsRaw' in data or 'text' in data:
+                goods.text = cls._coerce_gds_raw(data)
             session.flush()
             return cls._format(goods), None
 
@@ -84,24 +151,42 @@ class InvGoodsDao:
 
     @classmethod
     def delete(cls, goods_id):
-        """删除商品。
+        """删除商品，并级联删除其关联资源：
+        1. 该商品的入库明细（t_mall_stock_in_item）
+        2. 该商品的库存流水（t_mall_stock_log）
+        3. 仅包含该商品的入库单（明细删空后为空单则删除主表记录）
 
-        有入库记录/库存流水的商品也允许删除（物理删除），返回 has_stock_record 标记，
-        供上层提示"该商品已有入库记录"。
-        注意：数据库未对该商品定义外键约束，物理删除不会因外键失败。
+        返回 {'deleted': True, 'hasStockRecord': bool}，hasStockRecord 用于前端提示。
         """
         session = get_session()
         with session.begin():
             goods = session.query(InvGoods).filter(InvGoods.id == goods_id).first()
             if not goods:
                 return None, '商品不存在'
-            # 检查是否有相关入库明细（仅用于提示，不阻止删除）
-            has_item = session.query(StockInItem).filter(
-                StockInItem.goods_id == goods_id
-            ).first()
+
+            # 1. 找出引用该商品的入库明细及其所属入库单
+            items = session.query(StockInItem).filter(StockInItem.goods_id == goods_id).all()
+            has_stock_record = bool(items)
+            order_ids = set(i.order_id for i in items)
+
+            # 2. 删除该商品的入库明细
+            session.query(StockInItem).filter(StockInItem.goods_id == goods_id).delete()
+
+            # 3. 删除该商品的库存流水
+            session.query(StockLog).filter(StockLog.goods_id == goods_id).delete()
+
+            # 4. 删除仅包含该商品的入库单（明细删空后无其他商品则为空单）
+            for order_id in order_ids:
+                remaining = session.query(StockInItem).filter(
+                    StockInItem.order_id == order_id
+                ).count()
+                if remaining == 0:
+                    session.query(StockInOrder).filter(StockInOrder.id == order_id).delete()
+
+            # 5. 删除商品本身
             session.delete(goods)
             session.flush()
-            return {'deleted': True, 'hasStockRecord': bool(has_item)}, None
+            return {'deleted': True, 'hasStockRecord': has_stock_record}, None
 
     @classmethod
     def get_by_id(cls, goods_id):
@@ -160,6 +245,7 @@ class InvGoodsDao:
             'shelfLifeDays': goods.shelf_life_days,
             'imageUrl': goods.image_url,
             'remark': goods.remark,
+            'text': goods.text or '',
             'status': goods.status,
             'createTime': goods.create_time.strftime('%Y-%m-%d %H:%M:%S') if goods.create_time else '',
         }
