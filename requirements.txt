@@ -111,5 +111,5 @@ boto3==1.35.0
 botocore==1.35.0
 Pillow==10.2.0
 cryptography==42.0.8
-ddddocr==1.4.11
+ddddocr==1.6.1
 

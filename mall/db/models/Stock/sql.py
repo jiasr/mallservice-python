@@ -150,6 +150,76 @@ class InvGoodsDao:
             return cls._format(goods)
 
     @classmethod
+    def adjust_by_barcode(cls, session, barcode, change_qty, biz_no, remark,
+                          operator_id=0, operator_name=''):
+        """在外部传入的 session 事务内按条码调整进销存库存并写流水。
+
+        供商城下单/取消等业务在同一事务内实时联动进销存库存。
+        - change_qty 为负表示扣减（销售出库），为正表示增加（恢复/冲正）。
+        - 若条码为空或未匹配到进销存商品，返回 (None, '')，不抛异常，由调用方决定降级策略。
+        返回 (goods, error)，goods 为 InvGoods 实例。
+        """
+        barcode = (barcode or '').strip()
+        if not barcode:
+            return None, ''
+        goods = session.query(InvGoods).filter(
+            InvGoods.barcode == barcode
+        ).with_for_update().first()
+        if not goods:
+            return None, ''
+
+        change_qty = int(change_qty or 0)
+        if change_qty == 0:
+            return goods, ''
+
+        new_stock = goods.stock_quantity + change_qty
+        if new_stock < 0:
+            return None, '库存不足: {}'.format(barcode)
+
+        goods.stock_quantity = new_stock
+
+        log = StockLog(
+            goods_id=goods.id,
+            change_qty=change_qty,
+            balance_after=new_stock,
+            biz_type='stock_out' if change_qty < 0 else 'stock_in',
+            biz_no=biz_no,
+            operator_id=operator_id,
+            operator_name=operator_name,
+            remark=remark,
+        )
+        session.add(log)
+        return goods, ''
+
+    @classmethod
+    def get_stock_by_barcodes(cls, session, barcodes):
+        """按条码批量查询进销存库存，返回 {barcode: stock_quantity}。
+
+        供商城列表/详情/购物车实时读取进销存真实库存，避免逐条 N+1 查询。
+        """
+        barcodes = [b for b in (barcodes or []) if b and str(b).strip()]
+        if not barcodes:
+            return {}
+        rows = session.query(InvGoods.barcode, InvGoods.stock_quantity).filter(
+            InvGoods.barcode.in_(barcodes)
+        ).all()
+        return {barcode: (stock or 0) for barcode, stock in rows}
+
+    @classmethod
+    def get_inv_info_by_barcodes(cls, session, barcodes):
+        """按条码批量查询进销存商品信息，返回 {barcode: {name, stock}}。
+
+        供商城列表展示 SKU 关联的进销存商品名与库存，避免逐条 N+1 查询。
+        """
+        barcodes = [b for b in (barcodes or []) if b and str(b).strip()]
+        if not barcodes:
+            return {}
+        rows = session.query(
+            InvGoods.barcode, InvGoods.name, InvGoods.stock_quantity
+        ).filter(InvGoods.barcode.in_(barcodes)).all()
+        return {barcode: {'name': name, 'stock': (stock or 0)} for barcode, name, stock in rows}
+
+    @classmethod
     def delete(cls, goods_id):
         """删除商品，并级联删除其关联资源：
         1. 该商品的入库明细（t_mall_stock_in_item）

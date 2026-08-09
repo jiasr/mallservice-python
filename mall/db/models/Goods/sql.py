@@ -10,6 +10,7 @@ from mall.db.models.Goods.model import (
     GoodsSpu, GoodsSku, GoodsSpec
 )
 from mall.db.models.GoodsCatalog.model import GoodsCatalog
+from mall.db.models.Stock.sql import InvGoodsDao
 from mall.common.constant import SETTING_LIST_DEFAILT_PAGESIZE
 from mall.db.engines.s3 import get_image_display_url
 from oslo_log import log as logging
@@ -117,15 +118,21 @@ class GoodsSpuDao:
                 tags = _safe_json_loads(spu.tags)
                 # 轻量 SKU 列表，支持直接加购
                 skus = session.query(GoodsSku).filter(GoodsSku.spu_id == spu.id).all()
+                # 实时反查进销存商品信息（含名称与真实库存，按条码批量避免 N+1）
+                inv_info_map = InvGoodsDao.get_inv_info_by_barcodes(
+                    session, [s.barcode for s in skus]
+                )
                 sku_list = []
                 for sku in skus:
                     spec_info = _safe_json_loads(sku.spec_info)
+                    inv = inv_info_map.get(sku.barcode or '')
                     sku_list.append({
                         "skuId": sku.sku_id,
                         "specInfo": spec_info,
                         "price": sku.price,
                         "barcode": sku.barcode or "",
-                        "stock": sku.stock_quantity,
+                        "stock": (inv['stock'] if inv else sku.stock_quantity),
+                        "invName": (inv['name'] if inv else ''),
                         "thumb": cls._img_url(sku.sku_image) if sku.sku_image else "",
                     })
                 spu_list.append({
@@ -184,7 +191,12 @@ class GoodsSpuDao:
             })
 
         sku_list = []
-        for sku in session.query(GoodsSku).filter(GoodsSku.spu_id == spu.id).all():
+        detail_skus = session.query(GoodsSku).filter(GoodsSku.spu_id == spu.id).all()
+        # 实时反查进销存真实库存（按条码批量，避免 N+1）
+        detail_inv_stock_map = InvGoodsDao.get_stock_by_barcodes(
+            session, [s.barcode for s in detail_skus]
+        )
+        for sku in detail_skus:
             spec_info = _safe_json_loads(sku.spec_info)
             sku_list.append({
                 "skuId": sku.sku_id,
@@ -194,7 +206,7 @@ class GoodsSpuDao:
                     {"priceType": 1, "price": str(sku.price), "priceTypeName": "销售价格"},
                 ],
                 "stockInfo": {
-                    "stockQuantity": sku.stock_quantity,
+                    "stockQuantity": detail_inv_stock_map.get(sku.barcode or '', sku.stock_quantity),
                     "safeStockQuantity": 0,
                     "soldQuantity": sku.sold_quantity or 0,
                 },
@@ -230,7 +242,9 @@ class GoodsSpuDao:
             "available": spu.is_available,
             "minSalePrice": spu.min_sale_price,
             "maxSalePrice": spu.max_sale_price,
-            "spuStockQuantity": spu.stock_quantity,
+            "spuStockQuantity": sum(
+                detail_inv_stock_map.get(s.barcode or '', s.stock_quantity) for s in detail_skus
+            ),
             "soldNum": spu.sold_num,
             "isPutOnSale": spu.is_put_on_sale,
             "categoryIds": [],
@@ -337,7 +351,7 @@ class GoodsSpuDao:
 
     @classmethod
     def update_spu(cls, id, data):
-        """更新商品"""
+        """更新商品（SKU 按 skuId 匹配更新以保留已售数量，前端移除的 SKU 删除，规格重建）"""
         session = get_session()
         with session.begin():
             spu = session.query(GoodsSpu).filter(GoodsSpu.spu_id == id).first()
@@ -353,6 +367,83 @@ class GoodsSpuDao:
             tags = data.get("tags", [])
             if tags:
                 spu.tags = json.dumps(tags)
+
+            # ===== 规格：重建（specId 每次由前端新生成，无法匹配，重建不涉及销量） =====
+            session.query(GoodsSpec).filter(GoodsSpec.spu_id == spu.id).delete()
+            specs_data = data.get("specs", [])
+            for s in specs_data:
+                spec_dbid = uuid.uuid4().hex
+                spec = GoodsSpec(
+                    id=spec_dbid,
+                    spec_id=spec_dbid,
+                    spu_id=spu.id,
+                    title=s.get("title", ""),
+                    spec_values=json.dumps(s.get("values", [])),
+                )
+                session.add(spec)
+
+            # ===== SKU：按 skuId 匹配更新（保留 sold_quantity），新增添加，移除的删除 =====
+            skus_data = data.get("skus", [])
+            incoming_sku_ids = []
+            min_price = None
+            max_price = None
+            total_stock = 0
+
+            for sk in skus_data:
+                sku_id = (sk.get("skuId") or '').strip()
+                price = int(sk.get("price", 0))
+                stock = int(sk.get("stockQuantity", 0))
+                spec_info = sk.get("specInfo", [])
+
+                if min_price is None or price < min_price:
+                    min_price = price
+                if max_price is None or price > max_price:
+                    max_price = price
+                total_stock += stock
+
+                sku = None
+                if sku_id:
+                    sku = session.query(GoodsSku).filter(GoodsSku.sku_id == sku_id).first()
+                if sku:
+                    # 更新已存在 SKU，保留 sold_quantity
+                    sku.price = price
+                    sku.barcode = sk.get("barcode", "")
+                    sku.stock_quantity = stock
+                    sku.sku_image = sk.get("skuImage", "")
+                    sku.spec_info = json.dumps(spec_info)
+                else:
+                    # 新增 SKU
+                    sku_dbid = uuid.uuid4().hex
+                    sku = GoodsSku(
+                        id=sku_dbid,
+                        sku_id=sku_dbid,
+                        spu_id=spu.id,
+                        sku_image=sk.get("skuImage", ""),
+                        price=price,
+                        barcode=sk.get("barcode", ""),
+                        stock_quantity=stock,
+                        spec_info=json.dumps(spec_info),
+                    )
+                    session.add(sku)
+
+                if sku_id:
+                    incoming_sku_ids.append(sku_id)
+
+            # 删除前端已移除的 SKU（该 SPU 下不在传入列表中的）
+            if incoming_sku_ids:
+                session.query(GoodsSku).filter(
+                    GoodsSku.spu_id == spu.id,
+                    ~GoodsSku.sku_id.in_(incoming_sku_ids),
+                ).delete(synchronize_session=False)
+            else:
+                # 传入为空时，清空该 SPU 下所有 SKU
+                session.query(GoodsSku).filter(GoodsSku.spu_id == spu.id).delete(synchronize_session=False)
+
+            # 回写 SPU 价格/库存汇总
+            spu.min_sale_price = min_price or 0
+            spu.max_sale_price = max_price or 0
+            spu.stock_quantity = total_stock
+            session.flush()
             return {"success": True}
 
     @classmethod
@@ -382,6 +473,7 @@ class GoodsSpuDao:
             ).first()
             spec_info = _safe_json_loads(sku.spec_info)
             imgs = _safe_json_loads(spu.images) if spu else []
+            inv_stock_map = InvGoodsDao.get_stock_by_barcodes(session, [sku.barcode])
             return {
                 'skuId': sku.sku_id,
                 'skuDbId': sku.id,
@@ -390,7 +482,7 @@ class GoodsSpuDao:
                 'spuTitle': spu.title if spu else '',
                 'barcode': sku.barcode or '',
                 'price': sku.price or 0,
-                'stockQuantity': sku.stock_quantity or 0,
+                'stockQuantity': inv_stock_map.get(sku.barcode or '', sku.stock_quantity or 0),
                 'specInfo': spec_info,
                 'skuImage': sku.sku_image or '',
                 'spuImage': cls._img_url(imgs[0]) if imgs else '',
@@ -411,6 +503,7 @@ class GoodsSpuDao:
             ).first()
             spec_info = _safe_json_loads(sku.spec_info)
             imgs = _safe_json_loads(spu.images) if spu else []
+            inv_stock_map = InvGoodsDao.get_stock_by_barcodes(session, [sku.barcode])
             return {
                 'skuId': sku.sku_id,
                 'skuDbId': sku.id,
@@ -419,7 +512,7 @@ class GoodsSpuDao:
                 'spuTitle': spu.title if spu else '',
                 'barcode': sku.barcode or '',
                 'price': sku.price or 0,
-                'stockQuantity': sku.stock_quantity or 0,
+                'stockQuantity': inv_stock_map.get(sku.barcode or '', sku.stock_quantity or 0),
                 'specInfo': spec_info,
                 'skuImage': sku.sku_image or '',
                 'spuImage': cls._img_url(imgs[0]) if imgs else '',

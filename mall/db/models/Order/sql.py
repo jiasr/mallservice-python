@@ -8,6 +8,7 @@ from mall.db.models.Order.model import Order, OrderItem
 from mall.db.models.Goods.model import GoodsSpu, GoodsSku
 from mall.db.models.Cart.model import Cart
 from mall.db.models.User.model import UserAddress
+from mall.db.models.Stock.sql import InvGoodsDao
 from mall.db.models.Freight.sql import FreightCalculator
 from mall.db.engines.s3 import get_image_display_url
 from mall.common.common import Fail
@@ -193,7 +194,10 @@ class OrderDao:
                 spu = session.query(GoodsSpu).filter(GoodsSpu.spu_id == it['spuId']).first()
                 if not sku or not spu:
                     raise Fail("SKU_NOT_FOUND", {}, "商品不存在")
-                if sku.stock_quantity <= 0:
+                # 实时读取进销存真实库存判断售罄
+                inv_stock_map = InvGoodsDao.get_stock_by_barcodes(session, [sku.barcode])
+                real_stock = inv_stock_map.get(sku.barcode or '', sku.stock_quantity or 0)
+                if real_stock <= 0:
                     raise Fail("STOCK_EMPTY", {}, "{} 已售罄".format(spu.title))
                 qty = int(it.get('quantity', 1))
                 price = sku.price
@@ -257,11 +261,26 @@ class OrderDao:
                     raise Fail("SKU_NOT_FOUND", {}, "商品不存在")
 
                 qty = int(it.get('quantity', 1))
-                if sku.stock_quantity < qty:
+
+                # 实时读取进销存真实库存作为库存校验口径
+                inv_stock_map = InvGoodsDao.get_stock_by_barcodes(session, [sku.barcode])
+                real_stock = inv_stock_map.get(sku.barcode or '', sku.stock_quantity or 0)
+                if real_stock < qty:
                     raise Fail("STOCK_NOT_ENOUGH", {}, "{} 库存不足".format(spu.title))
 
-                # 扣减库存
+                # 扣减商城SKU库存（兼容层，权威库存以进销存为准）
                 sku.stock_quantity -= qty
+
+                # 实时联动扣减进销存库存（同一事务）：SKU 无条码或进销存无匹配商品时降级跳过
+                inv_goods, inv_err = InvGoodsDao.adjust_by_barcode(
+                    session, sku.barcode, -qty, order_id,
+                    remark='销售出库: 订单 {}'.format(order_id),
+                )
+                if inv_err:
+                    # 进销存库存不足：回滚已扣的SKU库存并报错
+                    sku.stock_quantity += qty
+                    raise Fail("STOCK_NOT_ENOUGH", {}, "{} 库存不足".format(spu.title))
+
                 price = sku.price
                 subtotal = price * qty
                 total_amount += subtotal
@@ -430,5 +449,10 @@ class OrderDao:
                 sku = session.query(GoodsSku).filter(GoodsSku.sku_id == oi.sku_id).with_for_update().first()
                 if sku:
                     sku.stock_quantity += oi.quantity
+                    # 实时联动恢复进销存库存（同一事务）：无条码或未匹配到进销存商品时跳过
+                    InvGoodsDao.adjust_by_barcode(
+                        session, sku.barcode, oi.quantity, order_id,
+                        remark='取消订单恢复库存: 订单 {}'.format(order_id),
+                    )
 
         return {'success': True}
