@@ -27,7 +27,18 @@ class InvGoods(BASE, DbBase):
     remark = Column(String(500), default='', comment='备注')
     text = Column(Text, default='', comment='从商品库请求到的原始数据(JSON)')
     status = Column(SmallInteger, default=1, comment='状态: 1=启用 0=停用')
+    is_auto_barcode = Column(SmallInteger, default=0, comment='条码来源: 0=手动/已有条码 1=无码商品自动生成')
     create_time = Column(DateTime, default=datetime.now)
+    update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class BarcodeSeq(BASE, DbBase):
+    """无码商品条码流水号表（单行计数器）：记录当前条码流水号，从1开始"""
+    __tablename__ = 't_mall_stock_barcode_seq'
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment='主键，固定为1（单行计数器）')
+    barcode = Column(String(64), nullable=False, default='', comment='最近生成的条码')
+    seq = Column(Integer, nullable=False, default=0, comment='当前条码流水号（从1开始）')
     update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 

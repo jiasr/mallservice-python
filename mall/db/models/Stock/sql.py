@@ -3,10 +3,10 @@ import json
 import uuid
 from datetime import datetime
 
-from sqlalchemy import func, desc, or_
+from sqlalchemy import desc, or_
 
 from mall.db.engines.mysql import get_session
-from mall.db.models.Stock.model import InvGoods, StockInOrder, StockInItem, StockLog
+from mall.db.models.Stock.model import InvGoods, BarcodeSeq, StockInOrder, StockInItem, StockLog
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
@@ -103,28 +103,32 @@ class InvGoodsDao:
         return body12 + str(check)
 
     @classmethod
+    def _next_barcode_seq(cls, session):
+        """从单行计数器表获取下一个条码流水号（从1开始，行锁保证并发唯一）"""
+        rec = session.query(BarcodeSeq).filter(BarcodeSeq.id == 1).with_for_update().first()
+        if not rec:
+            rec = BarcodeSeq(id=1, barcode='', seq=0)
+            session.add(rec)
+            session.flush()
+        rec.seq += 1
+        return rec
+
+    @classmethod
     def create(cls, data):
-        """新增库存商品（条码为空时自动生成 EAN-13 唯一条码）"""
+        """新增库存商品（条码为空时从流水号表自动生成 EAN-13 唯一条码）"""
         session = get_session()
         with session.begin():
             # 条码为空时按 EAN-13 格式自动生成唯一条码
             barcode = data.get('barcode', '').strip()
+            is_auto = 0
             if not barcode:
-                # 用当前最大商品 id +1 作为流水号，与自增 id 天然唯一不冲突
-                max_id = session.query(func.max(InvGoods.id)).scalar() or 0
-                seq = max_id + 1
-                # 生成后校验唯一，冲突则 +1 重试（避免取模循环导致重复）
-                for _ in range(1000000):
-                    barcode = cls.gen_barcode(seq)
-                    exists = session.query(InvGoods).filter(InvGoods.barcode == barcode).first()
-                    if not exists:
-                        break
-                    seq += 1
-                else:
-                    return None, '无法生成唯一条码'
-
-            # 条码唯一性校验（用户手动填写的条码仍需校验）
+                # 从单行计数器获取流水号（从1开始），生成 EAN-13 条码
+                rec = cls._next_barcode_seq(session)
+                barcode = cls.gen_barcode(rec.seq)
+                rec.barcode = barcode
+                is_auto = 1
             else:
+                # 条码唯一性校验（用户手动填写的条码）
                 exists = session.query(InvGoods).filter(InvGoods.barcode == barcode).first()
                 if exists:
                     return None, '该条码已存在商品'
@@ -145,6 +149,7 @@ class InvGoodsDao:
                 remark=data.get('remark', ''),
                 text=cls._coerce_gds_raw(data),
                 status=data.get('status', 1),
+                is_auto_barcode=is_auto,
             )
             session.add(goods)
             session.flush()
@@ -358,6 +363,7 @@ class InvGoodsDao:
             'remark': goods.remark,
             'text': goods.text or '',
             'status': goods.status,
+            'isAutoBarcode': goods.is_auto_barcode or 0,
             'createTime': goods.create_time.strftime('%Y-%m-%d %H:%M:%S') if goods.create_time else '',
         }
 
