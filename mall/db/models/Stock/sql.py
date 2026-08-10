@@ -1,5 +1,6 @@
 """进销存库存数据访问层"""
 import json
+import uuid
 from datetime import datetime
 
 from sqlalchemy import func, desc, or_
@@ -78,15 +79,55 @@ class InvGoodsDao:
         return ''
 
     @classmethod
+    def _ean13_check_digit(cls, code12):
+        """EAN-13 校验位算法：输入12位数字字符串，返回校验位(0-9)"""
+        total = 0
+        for i, ch in enumerate(code12):
+            digit = int(ch)
+            # 从左往右：奇数位(第1,3,...)权重3，偶数位权重1
+            total += digit * (3 if i % 2 == 0 else 1)
+        rem = total % 10
+        return 0 if rem == 0 else 10 - rem
+
+    @classmethod
+    def gen_barcode(cls, seq):
+        """按 123-000-000000-X 格式生成 13 位 EAN-13 条码（无分隔符）。
+
+        结构：前缀123(3) + 部门码000(3) + 商品流水号(6，支持百万级) + 校验位(1)。
+        """
+        seq = int(seq)
+        if seq < 0 or seq > 999999:
+            seq = seq % 1000000
+        body12 = '123' + '000' + str(seq).zfill(6)
+        check = cls._ean13_check_digit(body12)
+        return body12 + str(check)
+
+    @classmethod
     def create(cls, data):
-        """新增库存商品"""
+        """新增库存商品（条码为空时自动生成 EAN-13 唯一条码）"""
         session = get_session()
         with session.begin():
-            # 条码唯一性校验
+            # 条码为空时按 EAN-13 格式自动生成唯一条码
             barcode = data.get('barcode', '').strip()
-            exists = session.query(InvGoods).filter(InvGoods.barcode == barcode).first()
-            if exists:
-                return None, '该条码已存在商品'
+            if not barcode:
+                # 用当前最大商品 id +1 作为流水号，与自增 id 天然唯一不冲突
+                max_id = session.query(func.max(InvGoods.id)).scalar() or 0
+                seq = max_id + 1
+                # 生成后校验唯一，冲突则 +1 重试（避免取模循环导致重复）
+                for _ in range(1000000):
+                    barcode = cls.gen_barcode(seq)
+                    exists = session.query(InvGoods).filter(InvGoods.barcode == barcode).first()
+                    if not exists:
+                        break
+                    seq += 1
+                else:
+                    return None, '无法生成唯一条码'
+
+            # 条码唯一性校验（用户手动填写的条码仍需校验）
+            else:
+                exists = session.query(InvGoods).filter(InvGoods.barcode == barcode).first()
+                if exists:
+                    return None, '该条码已存在商品'
             goods = InvGoods(
                 barcode=barcode,
                 name=data.get('name', '').strip(),
