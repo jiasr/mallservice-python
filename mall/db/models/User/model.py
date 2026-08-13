@@ -15,6 +15,7 @@ class User(BASE,SerializerMixin):
     create_time = Column(DateTime,default=time.localtime(time.time()))
     name = Column(String(255))
     avatar = Column(String(500), default='', comment='头像URL')
+    phone = Column(String(20), default='', comment='手机号')
     wx_openid = Column(String(255),index=True)
     wx_unionid = Column(String(255), index=True)
     wx_session_key = Column(String(255))

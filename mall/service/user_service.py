@@ -54,6 +54,39 @@ def wx_login(params):
     return result
 
 
+@deco_catch_view_exception("微信手机号绑定")
+def wx_phone(user_id, params):
+    """通过 getPhoneNumber 返回的 code 换取并绑定手机号"""
+    code = params.get("code", "")
+    if not code:
+        return {"success": False, "message": "缺少手机号授权 code"}
+    # 用 access_token 调微信接口换取手机号
+    token_data = {
+        "grant_type": "client_credential",
+        "appid": wx_app_id,
+        "secret": wx_app_secret,
+    }
+    token_resp = requests.get('https://api.weixin.qq.com/cgi-bin/token', params=token_data).json()
+    access_token = token_resp.get('access_token')
+    if not access_token:
+        LOG.error("获取 access_token 失败: {}".format(token_resp))
+        return {"success": False, "message": "获取微信凭证失败"}
+
+    url = 'https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=' + access_token
+    resp = requests.post(url, json={"code": code}).json()
+    LOG.info("getPhoneNumber 返回: {}".format(resp))
+    if resp.get('errcode') != 0 or not resp.get('phone_info'):
+        return {"success": False, "message": resp.get('errmsg', '手机号获取失败')}
+    phone = resp['phone_info'].get('purePhoneNumber', '')
+    if not phone:
+        return {"success": False, "message": "手机号为空"}
+
+    success, error = UserDao.bind_phone(user_id, phone)
+    if not success:
+        return {"success": False, "message": error}
+    return {"success": True, "phone": phone}
+
+
 @deco_catch_view_exception("更新用户资料")
 def update_profile(user_id, data):
     from mall.db.engines.mysql import get_session
@@ -80,17 +113,19 @@ def user_info(user_id):
     session = get_session()
     nickname = ''
     avatar = ''
+    phone = ''
     with session.begin():
         user = session.query(User).filter(User.id == user_id).first()
         if user:
             nickname = user.name or ''
             avatar = user.avatar or ''
+            phone = user.phone or ''
 
     counts = OrderDao.count_by_status(user_id) or {}
     data = counts.get('data', [])
 
     return {
-        'userInfo': {'avatarUrl': avatar, 'nickName': nickname, 'phoneNumber': ''},
+        'userInfo': {'avatarUrl': avatar, 'nickName': nickname, 'phoneNumber': phone},
         'countsData': [],
         'orderTagInfos': data,
         'customerServiceInfo': {},

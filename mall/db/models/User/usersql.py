@@ -60,3 +60,21 @@ class UserDao:
                 session.add(instance)
                 result["userid"]=instance.id
         return result
+
+    @classmethod
+    def bind_phone(cls, user_id, phone):
+        """将手机号绑定到指定用户"""
+        session = get_session()
+        with session.begin():
+            user = session.query(User).filter(User.id == user_id).first()
+            if not user:
+                return False, '用户不存在'
+            user.phone = phone
+        return True, ''
+
+    @classmethod
+    def get_by_phone(cls, phone):
+        """按手机号查询用户（用于手机号换绑/合并）"""
+        session = get_session()
+        with session.begin():
+            return session.query(User).filter(User.phone == phone).first()

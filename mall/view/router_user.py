@@ -36,6 +36,16 @@ class UserList(Resource):
         return user_service.wx_login(data)
 
 
+@ns_user.route('/wx_phone', methods=['POST'])
+class UserWxPhone(Resource):
+    def post(self):
+        data = json.loads(request.data)
+        user_id = request.headers.get('token', '') or request.headers.get('userid', '')
+        if not user_id:
+            return {"success": False, "message": "未登录"}
+        return user_service.wx_phone(user_id, data)
+
+
 @ns_user.route('/info', methods=['GET'])
 class UserInfo(Resource):
     def get(self):

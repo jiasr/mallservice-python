@@ -80,10 +80,12 @@ class AddressDao:
     def user_address_list(cls, params):
         page_num = params.get("currentPage", 1)
         page_size = params.get("pageSize", SETTING_LIST_DEFAILT_PAGESIZE)
+        # 只查询当前用户的地址，防止越权看到其他用户的地址
+        userid = params.get("userid", "")
 
         session = get_session()
         with session.begin():
-            query = session.query(UserAddress)
+            query = session.query(UserAddress).filter(UserAddress.userid == userid)
             count = query.count()
 
             page_size = int(page_size)
@@ -98,7 +100,12 @@ class AddressDao:
     def user_address_detail(cls, data):
         session = get_session()
         with session.begin():
-            address = session.query(UserAddress).filter_by(id=data.get("id")).one_or_none()
+            query = session.query(UserAddress).filter(UserAddress.id == data.get("id"))
+            # 若携带 userid 则按归属过滤，防止越权查看他人地址详情
+            userid = data.get("userid")
+            if userid:
+                query = query.filter(UserAddress.userid == userid)
+            address = query.one_or_none()
             if address:
                 print(f"找到地址: {address.detail}")
             else:

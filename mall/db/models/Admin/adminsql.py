@@ -221,6 +221,7 @@ class AdminUserDao:
                 (23, "角色与权限", "/setting/role", "Key", 8, 2, "admin:manage"),
                 (24, "存储配置", "/setting/objectsto", "Folder", 8, 3, ""),
                 (25, "微信支付", "/setting/wechatpay", "Money", 8, 4, ""),
+                (28, "用户协议与隐私", "/setting/agreement", "Document", 8, 5, ""),
 
                 # 配送管理顶级菜单
                 (12, "配送管理", "/freight/list", "Van", 0, 9, ""),
