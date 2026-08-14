@@ -42,7 +42,7 @@ ENV MALL_CONF=/app/etc/mall/mall.conf
 
 EXPOSE 8560
 
-# 使用 gunicorn 启动
+# 使用 gunicorn 启动（统一走 mall.cmd.api:app，entry_points 的 mall_api 入口）
 CMD ["gunicorn", \
      "--workers", "4", \
      "--bind", "0.0.0.0:8560", \
@@ -50,4 +50,4 @@ CMD ["gunicorn", \
      "--access-logfile", "-", \
      "--error-logfile", "-", \
      "--log-level", "info", \
-     "wsgi:application"]
+     "mall.cmd.api:app"]
