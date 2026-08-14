@@ -22,8 +22,8 @@ RUN if [ -f /etc/apt/sources.list ]; then \
     && rm -rf /var/lib/apt/lists/*
 
 # 配置 pip 源为阿里云镜像
-RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
-    && pip config set global.trusted-host mirrors.aliyun.com
+#RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
+#    && pip config set global.trusted-host mirrors.aliyun.com
 
 WORKDIR /app
 
