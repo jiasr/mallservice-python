@@ -89,7 +89,7 @@ class OrderDao:
             'createTime': order.create_time.strftime('%Y-%m-%d %H:%M:%S') if order.create_time else '',
             'orderItemVOs': [{
                 'id': item.id,
-                'goodsPictureUrl': item.thumb,
+                'goodsPictureUrl': get_image_display_url(item.thumb) if item.thumb else '',
                 'goodsName': item.title,
                 'goodsCount': item.quantity,
                 'realPrice': item.price,
@@ -164,7 +164,7 @@ class OrderDao:
             'shippingNo': order.shipping_no or '',
             'orderItemList': [{
                 'title': it.title,
-                'thumb': it.thumb,
+                'thumb': get_image_display_url(it.thumb) if it.thumb else '',
                 'specInfo': [{'specValue': it.spec_label}],
                 'price': it.price,
                 'quantity': it.quantity,
@@ -415,7 +415,7 @@ class OrderDao:
                     'spuId': oi.spu_id,
                     'skuId': oi.sku_id,
                     'goodsName': oi.title,
-                    'goodsPictureUrl': oi.thumb,
+                    'goodsPictureUrl': get_image_display_url(oi.thumb) if oi.thumb else '',
                     'specInfo': [{'specValue': oi.spec_label}],
                     'specifications': [{'specValue': oi.spec_label}],
                     'price': oi.price,

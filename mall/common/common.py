@@ -104,12 +104,17 @@ def build_tree(flat_list, id_field="id", parent_field="parentId", children_field
     for item in flat_list:
         node_id = _val(item, id_field)
         pid = _val(item, parent_field) or "0"
+        # thumbnail 为图片字段：相对路径动态拼接完整URL（已完整URL原样返回）
+        thumbnail = _val(item, "thumbnail") or ""
+        if thumbnail:
+            from mall.db.engines.s3 import get_image_display_url
+            thumbnail = get_image_display_url(thumbnail)
         node_dict[str(node_id)] = {
             "id": _val(item, id_field),
             "name": _val(item, "name"),
             "level": _val(item, "level"),
             "parentId": str(pid),
-            "thumbnail": _val(item, "thumbnail") or "",
+            "thumbnail": thumbnail,
             "createtime":str(item.create_time),
             "sort":_val(item, "sort_order"),
             children_field: [],

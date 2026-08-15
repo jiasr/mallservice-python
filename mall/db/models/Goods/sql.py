@@ -484,7 +484,7 @@ class GoodsSpuDao:
                 'price': sku.price or 0,
                 'stockQuantity': inv_stock_map.get(sku.barcode or '', sku.stock_quantity or 0),
                 'specInfo': spec_info,
-                'skuImage': sku.sku_image or '',
+                'skuImage': cls._img_url(sku.sku_image) if sku.sku_image else '',
                 'spuImage': cls._img_url(imgs[0]) if imgs else '',
             }
 
@@ -514,7 +514,7 @@ class GoodsSpuDao:
                 'price': sku.price or 0,
                 'stockQuantity': inv_stock_map.get(sku.barcode or '', sku.stock_quantity or 0),
                 'specInfo': spec_info,
-                'skuImage': sku.sku_image or '',
+                'skuImage': cls._img_url(sku.sku_image) if sku.sku_image else '',
                 'spuImage': cls._img_url(imgs[0]) if imgs else '',
             }
 

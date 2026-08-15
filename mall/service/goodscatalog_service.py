@@ -21,6 +21,12 @@ def goodscatalog_list(params):
     result["total"] =count
     result["data"] =[row.to_dict() for row in users]
 
+    # thumbnail 相对路径动态拼接完整URL（已完整URL原样返回）
+    from mall.db.engines.s3 import get_image_display_url
+    for item in result["data"]:
+        if item.get("thumbnail"):
+            item["thumbnail"] = get_image_display_url(item["thumbnail"])
+
     return result
 
 @deco_catch_view_exception("分类树")

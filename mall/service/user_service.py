@@ -124,8 +124,15 @@ def user_info(user_id):
     counts = OrderDao.count_by_status(user_id) or {}
     data = counts.get('data', [])
 
+    # 相对路径动态拼接完整URL（避免硬编码IP/端口），已在函数内import避免循环依赖
+    try:
+        from mall.db.engines.s3 import get_image_display_url
+        avatar_url = get_image_display_url(avatar) if avatar else ''
+    except Exception:
+        avatar_url = avatar
+
     return {
-        'userInfo': {'avatarUrl': avatar, 'nickName': nickname, 'phoneNumber': phone},
+        'userInfo': {'avatarUrl': avatar_url, 'nickName': nickname, 'phoneNumber': phone},
         'countsData': [],
         'orderTagInfos': data,
         'customerServiceInfo': {},

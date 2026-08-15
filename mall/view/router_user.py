@@ -90,4 +90,7 @@ class UserUploadAvatar(Resource):
             return {"success": False, "message": "文件大小超过限制（5MB）"}
         filename = file.filename or 'avatar.jpg'
         result = image_service.upload_file('avatar', file_data, filename)
-        return {"success": True, "data": result}
+        # relative_url 用于存库(避免硬编码IP/端口)；public_url 供前端临时预览
+        relative_url = result.get('relative_url') or result.get('object_name', '')
+        public_url = result.get('public_url', '')
+        return {"success": True, "data": {"relative_url": relative_url, "public_url": public_url}}
