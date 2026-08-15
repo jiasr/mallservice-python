@@ -6,6 +6,7 @@ from flask import request
 from flask_restx import Namespace, Resource, fields
 from oslo_log import log as logging
 from mall.service import  user_service
+from mall.service import image_service
 from mall.common.common import deco_catch_view_exception
 
 LOG = logging.getLogger(__name__)
@@ -62,3 +63,31 @@ class UserUpdateProfile(Resource):
             return {"success": False, "message": "未登录"}
         data = json.loads(request.data)
         return user_service.update_profile(user_id, data)
+
+
+@ns_user.route('/upload_avatar', methods=['POST'])
+class UserUploadAvatar(Resource):
+    """小程序用户上传头像：文件发后端转存，返回可访问的图片URL
+
+    前端 wx.chooseAvatar 返回的是本地临时路径(http://tmp/...)，不能直接存库，
+    必须先通过本接口上传到对象存储，拿到 public_url 后再调用 updateProfile 保存。
+    """
+
+    @deco_catch_view_exception("上传头像")
+    def post(self):
+        user_id = request.headers.get('token', '') or request.headers.get('userid', '')
+        if not user_id:
+            return {"success": False, "message": "未登录"}
+        if 'file' not in request.files:
+            return {"success": False, "message": "没有上传文件"}
+        file = request.files['file']
+        file_data = file.read()
+        if not file_data:
+            return {"success": False, "message": "文件为空"}
+        # 检查文件大小（5MB）
+        max_size = 5 * 1024 * 1024
+        if len(file_data) > max_size:
+            return {"success": False, "message": "文件大小超过限制（5MB）"}
+        filename = file.filename or 'avatar.jpg'
+        result = image_service.upload_file('avatar', file_data, filename)
+        return {"success": True, "data": result}

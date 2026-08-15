@@ -87,9 +87,9 @@ def wx_phone(user_id, params):
     return {"success": True, "phone": phone}
 
 
-@deco_catch_view_exception("更新用户资料")
 def update_profile(user_id, data):
     from mall.db.engines.mysql import get_session
+    from mall.db.models.User.model import User
     session = get_session()
     with session.begin():
         user = session.query(User).filter(User.id == user_id).first()

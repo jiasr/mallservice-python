@@ -9,7 +9,7 @@ LOG = logging.getLogger(__name__)
 SCENE_PREFIX_MAP = {
     "product": "images/goods",         # 商品图片
     "editor": "images/goods",          # 富文本编辑器图片
-    "avatar": "images/goods",          # 头像
+    "avatar": "images/avatar",         # 头像（单独目录，与商品图分开）
     "banner": "images/goods",          # Banner
     "system": "images/system",         # 系统图片（Logo 等）
 }
