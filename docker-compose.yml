@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  mallservice:
+    # 镜像已构建好，直接使用，不重新 build
+    image: ghcr.nju.edu.cn/jiasr/mallservice-python:latest
+    container_name: mallservice-python
+    restart: unless-stopped
+    ports:
+      - "8560:8560"   # 后端 API 端口
+    environment:
+      MALL_CONF: /app/etc/mall/mall.conf
+      TZ: Asia/Shanghai
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - mall_logs:/var/log/mall
+
+volumes:
+  mall_logs:
