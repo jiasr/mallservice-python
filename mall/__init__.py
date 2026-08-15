@@ -10,6 +10,28 @@ import json
 
 import socket
 import threading
+import os
+
+from mall.conf import CONF
+
+
+def _bootstrap_config():
+    """在模块导入时尽早加载配置文件，保证 auto_migrate / TCP / 数据库操作之前配置就绪"""
+    try:
+        if CONF.database.connection:
+            return
+    except Exception:
+        pass
+    config_file = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), '..', 'etc', 'mall', 'mall.conf'
+    )
+    if os.path.exists(config_file):
+        CONF(['--config-file', config_file], project="mall")
+    else:
+        CONF([], project="mall")
+
+
+_bootstrap_config()
 
 from mall.view.router_user import app_user,ns_user
 from mall.view.router_address import app_address,ns_address
@@ -99,7 +121,17 @@ def start_tcp_server(host='0.0.0.0', port=5001):
     server.close()
 
 # 1. 先启动TCP服务器线程（daemon=True，主程序退出时自动结束）
-tcp_thread = threading.Thread(target=start_tcp_server, daemon=True)
+#    注意：gunicorn 多 worker 会各自 import 本模块，为避免端口冲突，
+#    仅当端口未被占用时才启动（首个进程持有，其余跳过）。
+def _safe_start_tcp_server():
+    try:
+        start_tcp_server()
+    except OSError:
+        # 端口已被其他 worker/进程占用，说明 TCP 服务已就绪，跳过即可
+        pass
+
+
+tcp_thread = threading.Thread(target=_safe_start_tcp_server, daemon=True)
 tcp_thread.start()
 
 

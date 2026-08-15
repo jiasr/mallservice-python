@@ -18,6 +18,13 @@ def load_config():
     global _configured
     if _configured:
         return
+    # mall/__init__.py 的 _bootstrap_config 已在 import 时加载过配置，避免重复加载
+    try:
+        if CONF.database.connection:
+            _configured = True
+            return
+    except Exception:
+        pass
     if os.path.exists(CONF_FILE_PATH):
         CONF(['--config-file', CONF_FILE_PATH], project="mall")
     else:
