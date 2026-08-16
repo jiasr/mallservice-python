@@ -1,11 +1,27 @@
 """用户协议与隐私政策数据访问层"""
+import re
+
 from mall.common.constant import SETTING_LIST_DEFAILT_PAGESIZE
 from mall.db.engines.mysql import get_session
+from mall.db.engines.s3 import get_image_display_url
 from mall.db.models.Agreement.model import Agreement
 
 
 class AgreementDao:
     """用户协议与隐私政策数据访问"""
+
+    @staticmethod
+    def _convert_desc_images(html):
+        """把富文本HTML里相对路径图片(<img src='/...'>)转为完整公网URL，已含http/https的保持原样"""
+        if not html:
+            return html
+
+        def _replace(m):
+            prefix, quote, src = m.group(1), m.group(2), m.group(3)
+            return '{}src={}{}{}'.format(prefix, quote, get_image_display_url(src), quote)
+
+        pattern = re.compile(r'(\<img[^>]*\s)src=(["\'])(.*?)\2', re.IGNORECASE)
+        return pattern.sub(_replace, html)
 
     @classmethod
     def _format(cls, row):
@@ -15,7 +31,7 @@ class AgreementDao:
             'id': row.id,
             'type': row.type,
             'title': row.title,
-            'content': row.content or '',
+            'content': cls._convert_desc_images(row.content or ''),
             'version': row.version,
             'status': row.status,
             'createTime': row.create_time.strftime('%Y-%m-%d %H:%M:%S') if row.create_time else '',

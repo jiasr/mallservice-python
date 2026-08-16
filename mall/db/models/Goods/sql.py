@@ -49,6 +49,22 @@ class GoodsSpuDao:
         """将相对路径转为完整公网 URL"""
         return get_image_display_url(path)
 
+    @staticmethod
+    def _convert_desc_images(html):
+        """把富文本 HTML 里相对路径的图片(<img src='/...'>)转为完整公网 URL。
+        已含 http/https 的保持原样。"""
+        if not html:
+            return html
+
+        def _replace(match):
+            prefix, quote, src = match.group(1), match.group(2), match.group(3)
+            full = get_image_display_url(src)
+            return '{}src={}{}{}'.format(prefix, quote, full, quote)
+
+        import re as _re
+        pattern = _re.compile(r'(\<img[^>]*\s)src=(["\'])(.*?)\2', _re.IGNORECASE)
+        return pattern.sub(_replace, html)
+
     @classmethod
     def get_by_spu_id(cls, spu_id):
         """根据spuId获取商品详情"""
@@ -229,8 +245,8 @@ class GoodsSpuDao:
         images = [cls._img_url(u) for u in images_raw]
         primary_img = images[0] if images else ""
 
-        # 商品详情描述（富文本HTML或纯文本）
-        detail_content = (spu.desc or '').strip()
+        # 商品详情描述（富文本HTML或纯文本）；相对路径图片转完整 URL
+        detail_content = cls._convert_desc_images((spu.desc or '').strip())
 
         return {
             "saasId": "88888888",
