@@ -336,11 +336,7 @@ class AdminUserDao:
                 ("allow_register", "true", "是否允许注册", "access"),
                 ("register_need_audit", "false", "注册是否需要审核", "access"),
                 ("enable_distribution", "true", "是否启用分销", "access"),
-                # 微信支付
-                ("wechat_app_id", "", "微信小程序AppID", "pay"),
-                ("wechat_mch_id", "", "微信商户号", "pay"),
-                ("wechat_mch_key", "", "微信商户API密钥", "pay"),
-                ("wechat_notify_url", "", "支付回调URL", "pay"),
+                # 微信支付配置统一存于 t_mall_wechat_pay_config 表，此处不再冗余定义
             ]
 
             for key, value, description, group in default_configs:
