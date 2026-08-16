@@ -13,6 +13,3 @@ htmlcov/
 dist/
 build/
 *.egg-info/
-
-# 本地数据库连接配置（不同环境指向不同库，不纳入版本控制）
-etc/mall/mall.conf
