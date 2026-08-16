@@ -1,6 +1,7 @@
 """订单数据访问层"""
 import json
 import math
+import random
 from datetime import datetime
 from sqlalchemy import func
 from mall.db.engines.mysql import get_session
@@ -24,13 +25,16 @@ def _img_url(path):
 
 
 def _generate_order_id(session):
-    """生成订单号: CH{年月日}{8位流水}"""
-    prefix = datetime.now().strftime('CH%Y%m%d')
-    max_id = session.query(func.max(Order.order_id)).filter(
-        Order.order_id.like(prefix + '%')
-    ).scalar()
-    seq = int(max_id[-8:]) + 1 if max_id and len(max_id) >= 16 else 1
-    return '{}{:08d}'.format(prefix, seq)
+    """生成全局唯一订单号: CH{年月日时分秒毫秒}{6位随机数}
+
+    不依赖数据库当天流水号，避免清库/重置后订单号从1开始，
+    与微信侧历史支付记录冲突（ORDERPAID: 该订单已支付）。
+    毫秒级时间戳 + 6位随机数，同一毫秒内可容纳100万个订单号，
+    保证每次生成全局唯一，满足高并发下单场景。
+    """
+    now = datetime.now()
+    ts = now.strftime('%Y%m%d%H%M%S') + '{:03d}'.format(now.microsecond // 1000)
+    return 'CH{}{:06d}'.format(ts, random.randint(0, 999999))
 
 
 class OrderDao:
