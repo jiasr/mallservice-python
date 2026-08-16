@@ -6,13 +6,13 @@ from sqlalchemy import Column, DateTime, Integer
 from sqlalchemy import String, Text, Float
 from sqlalchemy_serializer import SerializerMixin
 import uuid
-import time
+from datetime import datetime
 
 class User(BASE,SerializerMixin):
     __tablename__ = 't_mall_user'
     # id
     id = Column(String(255), primary_key=True,default=uuid.UUID)
-    create_time = Column(DateTime,default=time.localtime(time.time()))
+    create_time = Column(DateTime,default=datetime.now)
     name = Column(String(255))
     avatar = Column(String(500), default='', comment='头像URL')
     phone = Column(String(20), default='', comment='手机号')
@@ -24,8 +24,8 @@ class UserAddress(BASE,SerializerMixin):
     __tablename__ = 't_mall_user_address'
     # id 以此为键进行
     id = Column(String(255), primary_key=True,default=uuid.UUID) # id
-    create_time = Column(DateTime,default=time.localtime(time.time())) #创建时间
-    update_time = Column(DateTime,default=time.localtime(time.time())) #修改时间
+    create_time = Column(DateTime,default=datetime.now) #创建时间
+    update_time = Column(DateTime,default=datetime.now, onupdate=datetime.now) #修改时间
     userid =  Column(String(255)) #用户id
     name = Column(String(255)) #收货人姓名
     mobile  = Column(String(20)) #收货人手机号

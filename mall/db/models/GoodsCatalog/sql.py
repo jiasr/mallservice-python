@@ -95,10 +95,9 @@ class GoodsCatalogDao:
                     result["status"] = "先删除子分类"
                 else:
                     session.query(GoodsCatalog).filter(GoodsCatalog.id == id).delete()
+                    result["status"] = "ok"
             else:
                 result["status"]="未找到相关id"
-
-            result["status"] = "ok"
         return result
 
     @classmethod

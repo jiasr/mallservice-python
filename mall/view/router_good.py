@@ -6,6 +6,7 @@ from flask import Blueprint, request
 from flask_restx import Namespace, Resource, fields
 from oslo_log import log as logging
 
+from mall.common.common import admin_required
 from mall.service import goods_service
 
 LOG = logging.getLogger(__name__)
@@ -52,6 +53,7 @@ class GoodsSimpleList(Resource):
 @ns_goods.route('/admin/goods/add', methods=['POST'])
 class AdminGoodsAdd(Resource):
     """新增商品"""
+    @admin_required
     def post(self):
         data = json.loads(request.data)
         return goods_service.admin_goods_add(data)
@@ -60,6 +62,7 @@ class AdminGoodsAdd(Resource):
 @ns_goods.route('/admin/goods/update/<id>', methods=['POST'])
 class AdminGoodsUpdate(Resource):
     """更新商品"""
+    @admin_required
     def post(self, id):
         data = json.loads(request.data)
         return goods_service.admin_goods_update(id, data)
@@ -68,6 +71,7 @@ class AdminGoodsUpdate(Resource):
 @ns_goods.route('/admin/goods/delete/<id>', methods=['POST'])
 class AdminGoodsDelete(Resource):
     """删除商品"""
+    @admin_required
     def post(self, id):
         return goods_service.admin_goods_delete(id)
 
@@ -75,6 +79,7 @@ class AdminGoodsDelete(Resource):
 @ns_goods.route('/admin/goods/putOnSale/<id>', methods=['POST'])
 class AdminGoodsPutOnSale(Resource):
     """上架商品"""
+    @admin_required
     def post(self, id):
         return goods_service.admin_goods_put_on_sale(id)
 
@@ -82,5 +87,6 @@ class AdminGoodsPutOnSale(Resource):
 @ns_goods.route('/admin/goods/pullOffSale/<id>', methods=['POST'])
 class AdminGoodsPullOffSale(Resource):
     """下架商品"""
+    @admin_required
     def post(self, id):
         return goods_service.admin_goods_pull_off_sale(id)
