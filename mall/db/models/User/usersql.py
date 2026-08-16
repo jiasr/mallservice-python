@@ -78,3 +78,82 @@ class UserDao:
         session = get_session()
         with session.begin():
             return session.query(User).filter(User.phone == phone).first()
+
+    # ========== 后台用户管理接口 ==========
+
+    @classmethod
+    def admin_list(cls, params):
+        """后台用户列表（分页 + 条件筛选）
+        参数: pageNum/pageSize/nickname/phone/status
+        """
+        page_num = int(params.get("pageNum", 1))
+        page_size = int(params.get("pageSize", SETTING_LIST_DEFAILT_PAGESIZE))
+        nickname = params.get("nickname", "").strip()
+        phone = params.get("phone", "").strip()
+        status = params.get("status")
+
+        session = get_session()
+        with session.begin():
+            query = session.query(User)
+            if nickname:
+                query = query.filter(User.name.like("%{}%".format(nickname)))
+            if phone:
+                query = query.filter(User.phone.like("%{}%".format(phone)))
+            if status not in (None, ""):
+                query = query.filter(User.status == int(status))
+
+            count = query.count()
+            start = (page_num - 1) * page_size
+            users = query.order_by(User.create_time.desc()).limit(page_size).offset(start).all()
+
+        # 组装前端需要的字段
+        user_list = []
+        for u in users:
+            user_list.append({
+                "id": u.id,
+                "nickname": u.name or '',
+                "avatar": u.avatar or '',
+                "phone": u.phone or '',
+                "status": u.status if u.status is not None else 1,
+                "createTime": u.create_time.strftime('%Y-%m-%d %H:%M:%S') if u.create_time else '',
+            })
+        return {"data": {"total": count, "list": user_list}}
+
+    @classmethod
+    def admin_detail(cls, user_id):
+        """后台用户详情"""
+        session = get_session()
+        with session.begin():
+            u = session.query(User).filter(User.id == user_id).first()
+            if not u:
+                return None
+            return {"data": {
+                "id": u.id,
+                "nickname": u.name or '',
+                "avatar": u.avatar or '',
+                "phone": u.phone or '',
+                "status": u.status if u.status is not None else 1,
+                "createTime": u.create_time.strftime('%Y-%m-%d %H:%M:%S') if u.create_time else '',
+            }}
+
+    @classmethod
+    def admin_set_status(cls, user_id, status):
+        """禁用/启用用户"""
+        session = get_session()
+        with session.begin():
+            u = session.query(User).filter(User.id == user_id).first()
+            if not u:
+                return False, "用户不存在"
+            u.status = 1 if status in (1, "1") else 0
+        return True, ""
+
+    @classmethod
+    def admin_delete(cls, user_id):
+        """删除用户"""
+        session = get_session()
+        with session.begin():
+            u = session.query(User).filter(User.id == user_id).first()
+            if not u:
+                return False, "用户不存在"
+            session.delete(u)
+        return True, ""

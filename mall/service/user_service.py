@@ -102,6 +102,42 @@ def update_profile(user_id, data):
     return {"success": True}
 
 
+@deco_catch_view_exception("后台用户列表")
+def admin_user_list(params):
+    """后台用户列表（分页 + 条件筛选）"""
+    return UserDao.admin_list(params)
+
+
+@deco_catch_view_exception("后台用户详情")
+def admin_user_detail(user_id):
+    """后台用户详情"""
+    result = UserDao.admin_detail(user_id)
+    if result is None:
+        return {"success": False, "message": "用户不存在"}
+    return result
+
+
+@deco_catch_view_exception("后台用户状态修改")
+def admin_user_set_status(user_id, params):
+    """后台禁用/启用用户"""
+    status = params.get("status")
+    if status not in (0, 1, "0", "1"):
+        return {"success": False, "message": "状态参数不合法"}
+    success, msg = UserDao.admin_set_status(user_id, status)
+    if not success:
+        return {"success": False, "message": msg}
+    return {"success": True}
+
+
+@deco_catch_view_exception("后台用户删除")
+def admin_user_delete(user_id):
+    """后台删除用户"""
+    success, msg = UserDao.admin_delete(user_id)
+    if not success:
+        return {"success": False, "message": msg}
+    return {"success": True}
+
+
 @deco_catch_view_exception("用户信息")
 def user_info(user_id):
     if not user_id:

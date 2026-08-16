@@ -19,6 +19,7 @@ class User(BASE,SerializerMixin):
     wx_openid = Column(String(255),index=True)
     wx_unionid = Column(String(255), index=True)
     wx_session_key = Column(String(255))
+    status = Column(Integer, default=1, comment='状态 1正常 0禁用')
 
 class UserAddress(BASE,SerializerMixin):
     __tablename__ = 't_mall_user_address'

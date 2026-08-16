@@ -7,7 +7,7 @@ from flask_restx import Namespace, Resource, fields
 from oslo_log import log as logging
 from mall.service import  user_service
 from mall.service import image_service
-from mall.common.common import deco_catch_view_exception
+from mall.common.common import deco_catch_view_exception, admin_required
 
 LOG = logging.getLogger(__name__)
 
@@ -94,3 +94,42 @@ class UserUploadAvatar(Resource):
         relative_url = result.get('relative_url') or result.get('object_name', '')
         public_url = result.get('public_url', '')
         return {"success": True, "data": {"relative_url": relative_url, "public_url": public_url}}
+
+
+# ========== 后台用户管理接口 ==========
+
+@ns_user.route('/admin/list', methods=['GET'])
+class UserAdminList(Resource):
+    """后台用户列表（分页 + 条件筛选）"""
+    @admin_required
+    def get(self):
+        params = request.args
+        return user_service.admin_user_list(params)
+
+
+@ns_user.route('/admin/detail', methods=['GET'])
+class UserAdminDetail(Resource):
+    """后台用户详情"""
+    @admin_required
+    def get(self):
+        user_id = request.args.get("id", "")
+        if not user_id:
+            return {"success": False, "message": "缺少用户id"}
+        return user_service.admin_user_detail(user_id)
+
+
+@ns_user.route('/admin/status/<user_id>', methods=['POST'])
+class UserAdminStatus(Resource):
+    """后台禁用/启用用户"""
+    @admin_required
+    def post(self, user_id):
+        data = json.loads(request.data)
+        return user_service.admin_user_set_status(user_id, data)
+
+
+@ns_user.route('/admin/delete/<user_id>', methods=['POST'])
+class UserAdminDelete(Resource):
+    """后台删除用户"""
+    @admin_required
+    def post(self, user_id):
+        return user_service.admin_user_delete(user_id)
