@@ -207,13 +207,13 @@ def _gen_default_data():
         ("allow_register", "true", "是否允许注册", "access"),
         ("register_need_audit", "false", "注册是否需要审核", "access"),
         ("enable_distribution", "true", "是否启用分销", "access"),
-        # 微信支付配置统一存于 t_mall_wechat_pay_config 表，此处不再冗余定义
+        # 微信支付配置统一存于 t_mall_config_wechatpay 表，此处不再冗余定义
     ]
     sys_rows = []
     for key, value, desc, group in sys_configs:
         sys_rows.append("('{}','{}','{}','{}')".format(key, value, desc, group))
     lines.append(
-        "INSERT INTO `t_mall_system_config` (`config_key`,`config_value`,`description`,`config_group`) VALUES\n"
+        "INSERT INTO `t_mall_config_system` (`config_key`,`config_value`,`description`,`config_group`) VALUES\n"
         + ",\n".join(sys_rows) + ";"
     )
     lines.append("")

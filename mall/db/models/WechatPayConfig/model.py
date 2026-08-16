@@ -6,7 +6,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime
 
 class WechatPayConfig(BASE, DbBase):
     """微信支付配置表"""
-    __tablename__ = 't_mall_wechat_pay_config'
+    __tablename__ = 't_mall_config_wechatpay'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     app_id = Column(String(128), default='', comment='微信小程序AppID')

@@ -336,7 +336,7 @@ class AdminUserDao:
                 ("allow_register", "true", "是否允许注册", "access"),
                 ("register_need_audit", "false", "注册是否需要审核", "access"),
                 ("enable_distribution", "true", "是否启用分销", "access"),
-                # 微信支付配置统一存于 t_mall_wechat_pay_config 表，此处不再冗余定义
+                # 微信支付配置统一存于 t_mall_config_wechatpay 表，此处不再冗余定义
             ]
 
             for key, value, description, group in default_configs:

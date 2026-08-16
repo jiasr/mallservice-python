@@ -6,7 +6,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime
 
 class SystemConfig(BASE, DbBase):
     """系统配置表 - 以 key-value 形式存储所有系统配置"""
-    __tablename__ = 't_mall_system_config'
+    __tablename__ = 't_mall_config_system'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     config_key = Column(String(128), unique=True, nullable=False, comment='配置键名')
