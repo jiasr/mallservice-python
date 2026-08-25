@@ -149,6 +149,15 @@ class AdminOrderDetail(Resource):
         return order_service.admin_detail(order_no)
 
 
+@ns_order.route('/admin/print/<orderNo>', methods=['GET'])
+class AdminOrderPrint(Resource):
+    """获取订单小票打印数据（订单 + 店铺信息）"""
+    @admin_required
+    @deco_catch_view_exception("订单小票打印数据")
+    def get(self, orderNo):
+        return order_service.admin_print(orderNo)
+
+
 @ns_order.route('/admin/process/<orderNo>', methods=['POST'])
 class AdminOrderProcess(Resource):
     @admin_required

@@ -102,6 +102,10 @@ def admin_detail(order_no):
     return OrderDao.admin_detail(order_no)
 
 
+def admin_print(order_no):
+    return OrderDao.admin_print(order_no)
+
+
 def pay(user_id, data):
     """获取微信支付参数"""
     order_id = data.get('orderId', '')

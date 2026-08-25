@@ -152,6 +152,15 @@ class OrderDao:
     @classmethod
     def _format_admin_order(cls, order, session):
         items = session.query(OrderItem).filter(OrderItem.order_id == order.order_id).all()
+        goods_amount = sum((it.price or 0) * (it.quantity or 0) for it in items)
+        # 按 SKU 批量查询条码（订单明细表不存条码，下单后 SKU 可能变化，以当前 SKU 条码为准）
+        sku_ids = [it.sku_id for it in items]
+        barcode_map = {}
+        if sku_ids:
+            rows = session.query(GoodsSku.sku_id, GoodsSku.barcode).filter(
+                GoodsSku.sku_id.in_(sku_ids)
+            ).all()
+            barcode_map = {r[0]: (r[1] or '') for r in rows}
         return {
             'orderNo': order.order_id,
             'consignee': order.consignee_name,
@@ -164,16 +173,42 @@ class OrderDao:
             'deliveryType': order.delivery_type,
             'remark': order.remark,
             'createTime': order.create_time.strftime('%Y-%m-%d %H:%M:%S') if order.create_time else '',
+            'paidAt': order.paid_at.strftime('%Y-%m-%d %H:%M:%S') if order.paid_at else '',
+            'paymentMethod': order.payment_method or '',
+            'goodsAmount': goods_amount,
+            'discountAmount': goods_amount + (order.freight_amount or 0) - (order.pay_amount or 0),
             'shippingCompany': order.shipping_company or '',
             'shippingNo': order.shipping_no or '',
             'orderItemList': [{
                 'title': it.title,
                 'thumb': get_image_display_url(it.thumb) if it.thumb else '',
                 'specInfo': [{'specValue': it.spec_label}],
+                'barcode': barcode_map.get(it.sku_id, ''),
                 'price': it.price,
                 'quantity': it.quantity,
+                'subtotal': (it.price or 0) * (it.quantity or 0),
             } for it in items],
         }
+
+    @classmethod
+    def admin_print(cls, order_no):
+        """获取订单小票打印数据（订单 + 店铺信息）"""
+        from mall.service.setting_service import get_all_settings
+        session = get_session()
+        with session.begin():
+            order = session.query(Order).filter(Order.order_id == order_no).first()
+            if not order:
+                return {'success': False, 'message': '订单不存在'}
+            settings = get_all_settings()
+            shop = {
+                'name': settings.get('site_name', ''),
+                'phone': settings.get('service_phone', ''),
+                'email': settings.get('service_email', ''),
+            }
+            return {'success': True, 'data': {
+                'order': cls._format_admin_order(order, session),
+                'shop': shop,
+            }}
 
     @staticmethod
     def _status_name(status):
