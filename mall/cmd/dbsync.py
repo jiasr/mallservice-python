@@ -38,6 +38,7 @@ _CORE_TABLES = [
     "t_mall_stock_log",
     "t_mall_agreement",
     "t_mall_task",
+    "t_mall_printer_config",
 ]
 
 

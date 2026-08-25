@@ -36,6 +36,7 @@ from mall.db.models.Freight import model as _m_freight  # noqa
 from mall.db.models.WechatPayConfig import model as _m_wxpay  # noqa
 from mall.db.models.Stock import model as _m_stock  # noqa
 from mall.db.models.Agreement import model as _m_agreement  # noqa
+from mall.db.models.PrinterConfig import model as _m_printer  # noqa
 
 from mall.db.models.base import BASE
 
@@ -160,6 +161,7 @@ def _gen_default_data():
         (26, "运费模板", "/freight/list", "List", 12, 1, ""),
         (27, "添加模板", "/freight/add", "Plus", 12, 2, "freight:add"),
         (28, "用户协议与隐私", "/setting/agreement", "Document", 8, 5, ""),
+        (32, "小票机", "/setting/printer", "Printer", 8, 6, ""),
         (30, "进销存", "/stock/goods/list", "Box", 0, 10, ""),
         (31, "库存商品", "/stock/goods/list", "List", 30, 1, ""),
     ]

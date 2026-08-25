@@ -379,6 +379,20 @@ CREATE TABLE t_mall_config_wechatpay (
 	PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ==================== t_mall_printer_config ====================
+CREATE TABLE t_mall_printer_config (
+	id VARCHAR(32) NOT NULL COMMENT 'UUID主键', 
+	brand VARCHAR(32) NOT NULL COMMENT '品牌标识: feie/xprinter', 
+	name VARCHAR(32) COMMENT '品牌显示名', 
+	config_json TEXT COMMENT '账号参数JSON: {"user":"","ukey":""}', 
+	devices_json TEXT COMMENT '设备列表JSON: [{"sn":"","key":"","name":"","status":1}]', 
+	enabled SMALLINT COMMENT '是否启用 1=启用 0=停用', 
+	create_time DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id), 
+	UNIQUE (brand)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ==================== t_mall_agreement ====================
 CREATE TABLE t_mall_agreement (
 	id INTEGER NOT NULL COMMENT '主键ID' AUTO_INCREMENT, 
@@ -4453,6 +4467,7 @@ INSERT INTO `t_mall_admin_menu` (`id`,`name`,`frontpath`,`icon`,`parent_id`,`sor
 (26,'运费模板','/freight/list','List',12,1,'',1),
 (27,'添加模板','/freight/add','Plus',12,2,'freight:add',1),
 (28,'用户协议与隐私','/setting/agreement','Document',8,5,'',1),
+(32,'小票机','/setting/printer','Printer',8,6,'',1),
 (30,'进销存','/stock/goods/list','Box',0,10,'',1),
 (31,'库存商品','/stock/goods/list','List',30,1,'',1);
 
@@ -4487,7 +4502,8 @@ INSERT INTO `t_mall_admin_role_menu` (`role_id`,`menu_id`) VALUES
 (1,27),
 (1,28),
 (1,30),
-(1,31);
+(1,31),
+(1,32);
 
 -- 默认管理员账号 admin / password123
 INSERT INTO `t_mall_admin_user` (`id`,`username`,`password_hash`,`avatar`,`role_id`,`status`) VALUES (1,'admin','e4851485e2f9a7f6843e1d4166ad94705c5cf83e51c18e984b01e7fce1944226','',1,1);

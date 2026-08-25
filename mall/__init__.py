@@ -46,6 +46,7 @@ from mall.view.router_order import app_order,ns_order
 from mall.view.router_freight import app_freight,ns_freight
 from mall.view.router_wechatpay import app_wechatpay,ns_wechatpay
 from mall.view.router_stock import app_stock,ns_stock
+from mall.view.router_printer import app_printer,ns_printer
 from mall.view.router_agreement import app_agreement, ns_agreement, ns_agreement_admin
 
 from mall.common.gds_login import query_barcode
@@ -171,6 +172,7 @@ app.register_blueprint(app_order, url_prefix="/v1/order")
 app.register_blueprint(app_freight, url_prefix="/v1/order/admin/freight")
 app.register_blueprint(app_wechatpay, url_prefix="/v1/admin")
 app.register_blueprint(app_stock, url_prefix="/v1/stock")
+app.register_blueprint(app_printer, url_prefix="/v1/admin")
 app.register_blueprint(app_agreement, url_prefix="/v1")
 
 
@@ -192,6 +194,7 @@ api.add_namespace(ns_order)
 api.add_namespace(ns_freight)
 api.add_namespace(ns_wechatpay)
 api.add_namespace(ns_stock)
+api.add_namespace(ns_printer)
 api.add_namespace(ns_agreement)
 api.add_namespace(ns_agreement_admin)
 
