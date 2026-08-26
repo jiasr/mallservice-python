@@ -35,7 +35,7 @@ BRANDS = [
         "available": True,
         "configFields": [
             {"key": "user", "label": "开发者账号", "type": "text", "required": True},
-            {"key": "ukey", "label": "开发者密钥", "type": "password", "required": True},
+            {"key": "ukey", "label": "开发者密钥", "type": "text", "required": True},
         ],
         "deviceFields": [
             {"key": "sn", "label": "设备编号", "type": "text", "required": True},
