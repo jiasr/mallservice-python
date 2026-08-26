@@ -91,6 +91,7 @@ def admin_list(params):
         params.get('orderNo', ''),
         params.get('consignee', ''),
         params.get('phone', ''),
+        params.get('payStatus'),
     )
 
 
@@ -195,16 +196,27 @@ def pay_notify_v3(body_json, headers, raw_body=''):
 
     order_id = result.get('out_trade_no', '')
     transaction_id = result.get('transaction_id', '')
+    amount = result.get('amount') or {}
+    total_fee = amount.get('total') if isinstance(amount, dict) else None
+    LOG.info("收到支付成功回调: 订单号={}, 微信交易号={}, 支付金额={}分".format(
+        order_id, transaction_id, total_fee))
 
     session = get_session()
     with session.begin():
         order = session.query(Order).filter(Order.order_id == order_id).first()
-        if order and order.pay_status == 0:
-            order.pay_status = 1
-            order.order_status = 1
-            order.paid_at = datetime.now()
-            order.payment_method = 'wechat'
-            order.transaction_id = transaction_id
+        if not order:
+            LOG.warning("支付回调订单不存在: 订单号={}".format(order_id))
+            return {'code': 'SUCCESS', 'message': 'OK'}
+        if order.pay_status != 0:
+            LOG.warning("支付回调重复通知: 订单号={}, 当前支付状态={}, 忽略更新".format(
+                order_id, order.pay_status))
+            return {'code': 'SUCCESS', 'message': 'OK'}
+        order.pay_status = 1
+        order.order_status = 1
+        order.paid_at = datetime.now()
+        order.payment_method = 'wechat'
+        order.transaction_id = transaction_id
+        LOG.info("订单 {} 支付成功, 已更新状态(pay_status=1/order_status=1), 金额={}分, 微信交易号: {}".format(
+            order_id, total_fee, transaction_id))
 
-    LOG.info("订单 {} 支付成功, 微信交易号: {}".format(order_id, transaction_id))
     return {'code': 'SUCCESS', 'message': 'OK'}

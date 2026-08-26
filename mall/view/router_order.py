@@ -136,6 +136,7 @@ class AdminOrderList(Resource):
             'orderNo': request.args.get('orderNo', ''),
             'consignee': request.args.get('consignee', ''),
             'phone': request.args.get('phone', ''),
+            'payStatus': request.args.get('payStatus'),
         }
         return order_service.admin_list(params)
 
