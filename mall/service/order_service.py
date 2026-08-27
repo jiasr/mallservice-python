@@ -84,7 +84,7 @@ def order_count(user_id):
 
 
 def admin_list(params):
-    return OrderDao.admin_list(
+    data = OrderDao.admin_list(
         int(params.get('pageNum', 1)),
         int(params.get('pageSize', 10)),
         params.get('orderStatus'),
@@ -93,6 +93,17 @@ def admin_list(params):
         params.get('phone', ''),
         params.get('payStatus'),
     )
+    # 批量合并订单小票打印状态（最近一次），-1=未打印
+    order_list = (data.get('data') or {}).get('list') or []
+    if order_list:
+        from mall.service import printer_service
+        ticket_map = printer_service.get_orders_ticket_status(
+            [o.get('orderNo') for o in order_list])
+        for o in order_list:
+            ticket = ticket_map.get(o.get('orderNo'))
+            o['ticketStatus'] = ticket['status'] if ticket else -1
+            o['ticketTime'] = ticket['createTime'] if ticket else ''
+    return data
 
 
 def admin_process(order_no, data):

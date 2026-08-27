@@ -280,6 +280,58 @@ def has_ticket_printed(order_no):
     return log is not None and log.status in (0, 1)
 
 
+def get_orders_ticket_status(order_nos):
+    """批量查询订单最近一次小票打印状态
+
+    返回 {orderNo: {'status': 状态, 'createTime': 最近打印时间}}，无记录的不在结果中。
+    用于订单列表合并展示（避免每个订单单独查一次）。
+    """
+    order_nos = [n for n in (order_nos or []) if n]
+    if not order_nos:
+        return {}
+    session = get_session()
+    with session.begin():
+        rows = session.query(PrintLog).filter(
+            PrintLog.order_no.in_(order_nos), PrintLog.biz_type == 1
+        ).order_by(PrintLog.create_time.desc()).all()
+    result = {}
+    for r in rows:
+        if r.order_no not in result:
+            result[r.order_no] = {
+                'status': r.status,
+                'createTime': r.create_time.strftime('%Y-%m-%d %H:%M:%S') if r.create_time else '',
+            }
+    return result
+
+
+def list_logs(order_no='', status='', page_num=1, page_size=10):
+    """打印流水分页查询（订单打印记录/设置页共用）
+
+    支持订单号模糊筛选、状态筛选（-1=未打印 0=已提交 1=打印成功 2=打印失败）。
+    """
+    session = get_session()
+    with session.begin():
+        q = session.query(PrintLog)
+        if order_no:
+            q = q.filter(PrintLog.order_no.like('%' + order_no + '%'))
+        if status != '' and status is not None and str(status).isdigit():
+            q = q.filter(PrintLog.status == int(status))
+        total = q.count()
+        q = q.order_by(PrintLog.create_time.desc()).limit(page_size).offset((page_num - 1) * page_size)
+        rows = q.all()
+        items = [{
+            'id': r.id,
+            'orderNo': r.order_no,
+            'bizType': r.biz_type,
+            'printerSn': r.printer_sn,
+            'feieOrderId': r.feie_order_id,
+            'status': r.status,
+            'message': r.message,
+            'createTime': r.create_time.strftime('%Y-%m-%d %H:%M:%S') if r.create_time else '',
+        } for r in rows]
+    return {'success': True, 'data': {'total': total, 'list': items}}
+
+
 # ==================== 打印策略 ====================
 
 def _pick_device(config, devices, sn=''):
@@ -404,6 +456,42 @@ def print_ticket(order_no, sn=''):
 
 
 # ==================== 飞鹅打印结果回调 ====================
+
+def handle_verify_file(filename):
+    """飞鹅域名验证文件响应
+
+    飞鹅平台要求回调地址所在目录可访问验证文件 feieyun_verify_xxx.txt：
+    https://域名/v1/printer/callback/feieyun_verify_xxx.txt
+    文件名中的随机串在飞鹅配置 verifyToken 中维护，验证内容即 token 本身，
+    无需手动上传文件；token 未配置或文件名不匹配时返回 None（404）。
+    """
+    session = get_session()
+    with session.begin():
+        row = session.query(PrinterConfig).filter(PrinterConfig.brand == 'feie').first()
+        if not row:
+            return None
+        try:
+            config = json.loads(row.config_json) if row.config_json else {}
+        except Exception:
+            config = {}
+    token = config.get('verifyToken', '')
+    scan_token = config.get('scanVerifyToken', '')
+    for t in (token, scan_token):
+        if t and filename == 'feieyun_verify_{}.txt'.format(t):
+            return t
+    return None
+
+
+def handle_scan_callback(params, remote_ip=''):
+    """处理飞鹅扫码数据回调
+
+    扫码一体机/带扫码枪打印机扫码后，飞鹅按平台配置的扫码回调地址推送数据。
+    当前记录完整参数日志（格式以飞鹅实际推送为准），立即返回 SUCCESS 防止重推；
+    后续如需业务处理（如扫码查库存/自动补打）在此扩展。
+    """
+    LOG.info("收到飞鹅扫码回调: 来源IP={}, 参数={}".format(remote_ip or '未知', params))
+    return "SUCCESS"
+
 
 def _verify_callback_sign(params):
     """飞鹅回调验签：SHA256WithRSA，公钥文件不存在时跳过验签并告警"""

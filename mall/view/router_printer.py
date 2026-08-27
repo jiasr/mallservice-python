@@ -1,7 +1,7 @@
 """云打印机配置与测试 API"""
 import json
 
-from flask import Blueprint, request
+from flask import Blueprint, request, Response
 from flask_restx import Namespace, Resource
 from oslo_log import log as logging
 
@@ -62,6 +62,22 @@ class PrinterFeiePrint(Resource):
         return printer_service.print_ticket(data.get('orderNo', ''), data.get('sn', ''))
 
 
+@ns_printer.route('/printer/feie/logs', methods=['GET'])
+class PrinterFeieLogs(Resource):
+    """打印流水分页查询（订单打印记录/设置页共用）"""
+
+    @admin_required
+    @deco_catch_view_exception("查询打印记录")
+    def get(self):
+        args = request.args
+        return printer_service.list_logs(
+            args.get('orderNo', ''),
+            args.get('status', ''),
+            int(args.get('pageNum', 1) or 1),
+            int(args.get('pageSize', 10) or 10),
+        )
+
+
 # ==================== 飞鹅打印结果回调（无鉴权，飞鹅服务器调用） ====================
 
 app_printer_cb = Blueprint('printer_cb', __name__)
@@ -75,3 +91,28 @@ class PrinterFeieCallback(Resource):
     def post(self):
         params = request.form.to_dict()
         return printer_service.handle_print_callback(params, request.remote_addr or '')
+
+
+@ns_printer_cb.route('/callback/feie/scan', methods=['POST'])
+class PrinterFeieScanCallback(Resource):
+    """飞鹅扫码数据回调（无鉴权，飞鹅服务器调用）：需立即返回 SUCCESS 防止重推"""
+
+    def post(self):
+        params = request.form.to_dict()
+        return printer_service.handle_scan_callback(params, request.remote_addr or '')
+
+
+@ns_printer_cb.route('/callback/<filename>', methods=['GET'])
+class PrinterFeieVerifyFile(Resource):
+    """飞鹅域名验证文件（GET，无鉴权）
+
+    飞鹅平台域名验证：https://域名/v1/printer/callback/feieyun_verify_xxx.txt
+    文件名与内容来自飞鹅配置 verifyToken / scanVerifyToken（打印/扫码回调各一个），
+    无需手动上传文件。
+    """
+
+    def get(self, filename):
+        content = printer_service.handle_verify_file(filename)
+        if content is None:
+            return {'message': 'Not Found'}, 404
+        return Response(content, mimetype='text/plain')
