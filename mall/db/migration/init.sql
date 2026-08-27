@@ -393,6 +393,20 @@ CREATE TABLE t_mall_printer_config (
 	UNIQUE (brand)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ==================== t_mall_print_log ====================
+CREATE TABLE t_mall_print_log (
+	id VARCHAR(32) NOT NULL COMMENT 'UUID主键', 
+	order_no VARCHAR(64) COMMENT '订单号', 
+	biz_type SMALLINT COMMENT '业务类型 1=订单小票 2=测试打印', 
+	printer_sn VARCHAR(32) COMMENT '打印设备SN', 
+	feie_order_id VARCHAR(64) COMMENT '飞鹅受理订单ID(回调匹配用)', 
+	status SMALLINT COMMENT '打印状态 0=已提交 1=打印成功 2=打印失败', 
+	message TEXT COMMENT '失败原因/备注', 
+	create_time DATETIME DEFAULT CURRENT_TIMESTAMP, 
+	update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
+	PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ==================== t_mall_agreement ====================
 CREATE TABLE t_mall_agreement (
 	id INTEGER NOT NULL COMMENT '主键ID' AUTO_INCREMENT, 

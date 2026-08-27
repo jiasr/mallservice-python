@@ -37,6 +37,7 @@ from mall.db.models.WechatPayConfig import model as _m_wxpay  # noqa
 from mall.db.models.Stock import model as _m_stock  # noqa
 from mall.db.models.Agreement import model as _m_agreement  # noqa
 from mall.db.models.PrinterConfig import model as _m_printer  # noqa
+from mall.db.models.PrintLog import model as _m_print_log  # noqa
 
 from mall.db.models.base import BASE
 
