@@ -219,4 +219,35 @@ def pay_notify_v3(body_json, headers, raw_body=''):
         LOG.info("订单 {} 支付成功, 已更新状态(pay_status=1/order_status=1), 金额={}分, 微信交易号: {}".format(
             order_id, total_fee, transaction_id))
 
+    # ===== 小票自动打印（需飞鹅启用；未启用/失败不影响支付流程） =====
+    try:
+        _auto_print_after_pay(order_id)
+    except Exception as e:
+        LOG.error("支付后自动打印异常: 订单号={}, 错误={}".format(order_id, e))
+
     return {'code': 'SUCCESS', 'message': 'OK'}
+
+
+def _auto_print_after_pay(order_no):
+    """支付成功后自动打印小票：飞鹅启用 + 有设备 + 未打印过 才触发"""
+    from mall.service import printer_service
+    from mall.db.models.PrinterConfig.model import PrinterConfig
+    import json as _json
+    session = get_session()
+    with session.begin():
+        row = session.query(PrinterConfig).filter(PrinterConfig.brand == 'feie').first()
+        if not row or not row.enabled:
+            LOG.info("小票自动打印未启用，跳过: 订单号={}".format(order_no))
+            return
+        try:
+            devices = _json.loads(row.devices_json) if row.devices_json else []
+        except Exception:
+            devices = []
+    if not devices:
+        LOG.info("小票自动打印无可用设备，跳过: 订单号={}".format(order_no))
+        return
+    if printer_service.has_ticket_printed(order_no):
+        LOG.info("订单小票已打印过，跳过自动打印: 订单号={}".format(order_no))
+        return
+    result = printer_service.print_ticket(order_no)
+    LOG.info("支付成功自动打印小票: 订单号={}, 结果={}".format(order_no, result))
