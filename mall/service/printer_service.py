@@ -304,6 +304,28 @@ def get_orders_ticket_status(order_nos):
     return result
 
 
+def is_feie_printable():
+    """飞鹅小票打印是否已启用且可出票
+
+    判断逻辑与 _auto_print_after_pay / print_ticket 保持一致：
+    配置存在 + enabled 开启 + 至少一台可用设备。
+    返回 True 表示订单小票可以打印；False 表示小票机未配置/未启用。
+    """
+    session = get_session()
+    with session.begin():
+        row = session.query(PrinterConfig).filter(PrinterConfig.brand == 'feie').first()
+        if not row or not row.enabled:
+            return False
+        try:
+            devices = json.loads(row.devices_json) if row.devices_json else []
+        except Exception:
+            devices = []
+    if not devices:
+        return False
+    # 至少一台状态启用(status!=0)的设备
+    return any(d.get('status', 1) for d in devices)
+
+
 def list_logs(order_no='', status='', page_num=1, page_size=10):
     """打印流水分页查询（订单打印记录/设置页共用）
 
@@ -367,16 +389,51 @@ def _pick_device(config, devices, sn=''):
 LINE = "--------------------------------"  # 57mm: 32 字符分隔线
 
 
+def _fen_to_yuan(fen):
+    """分 → 元，保留两位小数（订单金额字段单位均为分）"""
+    return (fen or 0) / 100.0
+
+
+# 订单状态中文映射（与前端 print.vue 保持一致）
+_ORDER_STATUS_NAMES = {0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消'}
+# 支付方式中文映射
+_PAYMENT_NAMES = {'wechat': '微信支付', '': '未支付'}
+
+
+def _status_name(status):
+    return _ORDER_STATUS_NAMES.get(status, '未知')
+
+
+def _payment_name(method):
+    return _PAYMENT_NAMES.get(method) or method or '未支付'
+
+
 def build_ticket_content(order, shop):
     """订单小票打印内容（57mm 热敏，飞鹅标签语法）
 
-    order: _format_admin_order 返回的订单 dict
+    与前端 print.vue 预览保持一致，实现所见即所得。
+    order: _format_admin_order 返回的订单 dict（金额单位：分）
     shop: 店铺信息 dict(name/phone/email)
     """
     lines = []
-    lines.append("<CB>{}</CB>".format(shop.get('name', '商城')))
-    lines.append("<CB>订单号: {}</CB>".format(order.get('orderNo', '')))
+    # ===== 店铺头部 =====
+    lines.append("<C>{}</C>".format(shop.get('name', '商城')))
+    if shop.get('phone'):
+        lines.append("<C>电话: {}</C>".format(shop.get('phone')))
     lines.append(LINE)
+    # ===== 订单信息 =====
+    lines.append("<L>订单号: {}</L>".format(order.get('orderNo', '')))
+    if order.get('createTime'):
+        lines.append("<L>下单时间: {}</L>".format(order.get('createTime')))
+    if order.get('paidAt'):
+        lines.append("<L>支付时间: {}</L>".format(order.get('paidAt')))
+    lines.append("<L>订单状态: {}</L>".format(_status_name(order.get('status'))))
+    lines.append("<L>支付方式: {}</L>".format(_payment_name(order.get('paymentMethod'))))
+    if order.get('shippingNo'):
+        lines.append("<L>物流: {} {}</L>".format(
+            order.get('shippingCompany') or '', order.get('shippingNo')))
+    lines.append(LINE)
+    # ===== 商品明细（单行紧凑排版） =====
     for it in order.get('orderItemList', []):
         title = it.get('title', '')
         barcode = it.get('barcode', '')
@@ -386,24 +443,35 @@ def build_ticket_content(order, shop):
             spec = '({})'.format(specs[0]['specValue'])
         name = (barcode + '|' if barcode else '') + title + spec
         qty = it.get('quantity', 0)
-        price = it.get('price', 0) or 0
-        subtotal = it.get('subtotal', 0) or 0
-        # 名称 + 数量 + 小计同行（紧凑排版，长名称自动换行）
-        lines.append("<L>{} x{}</L>".format(name, qty))
-        lines.append("<L>单价{:.2f}  小计{:.2f}</L>".format(price, subtotal))
+        subtotal = _fen_to_yuan(it.get('subtotal'))
+        # 名称 + 数量 + 小计压缩为一行（长名称自动换行）
+        lines.append("<L>{} x{}  ¥{:.2f}</L>".format(name, qty, subtotal))
     lines.append(LINE)
-    lines.append("<L>合计: {:.2f}</L>".format(order.get('payAmount') or order.get('totalAmount') or 0))
-    lines.append("<L>实付: {:.2f}</L>".format(order.get('payAmount') or 0))
+    # ===== 金额汇总 =====
+    lines.append("<L>商品金额: {:.2f}</L>".format(_fen_to_yuan(order.get('goodsAmount'))))
+    lines.append("<L>运费: {:.2f}</L>".format(_fen_to_yuan(order.get('freightAmount'))))
+    if (order.get('discountAmount') or 0) > 0:
+        lines.append("<L>优惠: -{:.2f}</L>".format(_fen_to_yuan(order.get('discountAmount'))))
+    lines.append("<L>实付金额: ¥{:.2f}</L>".format(_fen_to_yuan(order.get('payAmount'))))
+    lines.append(LINE)
+    # ===== 收货信息 =====
     consignee = order.get('consignee', '')
     phone = order.get('phone', '')
     if consignee or phone:
-        lines.append("<L>收件人: {} {}</L>".format(consignee, phone))
+        lines.append("<L>收货人: {} {}</L>".format(consignee, phone))
     if order.get('address'):
-        lines.append("<L>地址: {}</L>".format(order['address']))
+        lines.append("<L>收货地址: {}</L>".format(order['address']))
     if order.get('remark'):
         lines.append("<L>备注: {}</L>".format(order['remark']))
-    lines.append("<L>日期: {}</L>".format(time.strftime("%Y-%m-%d %H:%M:%S")))
-    lines.append("<BR><BR>")
+    lines.append(LINE)
+    # ===== 页脚 =====
+    lines.append("<C>谢谢惠顾，欢迎再次光临！</C>")
+    lines.append("<L>打印时间: {}</L>".format(time.strftime("%Y-%m-%d %H:%M:%S")))
+    # ===== 订单号二维码（飞鹅<QR>固定底部居中，内容为订单号，供门店PDA扫码） =====
+    order_no = order.get('orderNo', '')
+    if order_no:
+        lines.append("<QR>{}</QR>".format(order_no))
+    lines.append("<BR>")
     return "<BR>".join(lines)
 
 

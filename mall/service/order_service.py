@@ -93,15 +93,20 @@ def admin_list(params):
         params.get('phone', ''),
         params.get('payStatus'),
     )
-    # 批量合并订单小票打印状态（最近一次），-1=未打印
+    # 批量合并订单小票打印状态（最近一次）
+    # -2=未开启打印(飞鹅未配置/未启用) -1=未打印 0=已提交 1=打印成功 2=打印失败
     order_list = (data.get('data') or {}).get('list') or []
     if order_list:
         from mall.service import printer_service
+        printable = printer_service.is_feie_printable()
         ticket_map = printer_service.get_orders_ticket_status(
-            [o.get('orderNo') for o in order_list])
+            [o.get('orderNo') for o in order_list]) if printable else {}
         for o in order_list:
             ticket = ticket_map.get(o.get('orderNo'))
-            o['ticketStatus'] = ticket['status'] if ticket else -1
+            if not printable:
+                o['ticketStatus'] = -2
+            else:
+                o['ticketStatus'] = ticket['status'] if ticket else -1
             o['ticketTime'] = ticket['createTime'] if ticket else ''
     return data
 
