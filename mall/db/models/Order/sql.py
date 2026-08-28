@@ -25,7 +25,7 @@ def _img_url(path):
 
 
 def _generate_order_id(session):
-    """生成全局唯一订单号: CH{年月日时分秒毫秒}{6位随机数}
+    """生成全局唯一订单号: {年月日时分秒毫秒}{6位随机数}
 
     不依赖数据库当天流水号，避免清库/重置后订单号从1开始，
     与微信侧历史支付记录冲突（ORDERPAID: 该订单已支付）。
@@ -34,7 +34,7 @@ def _generate_order_id(session):
     """
     now = datetime.now()
     ts = now.strftime('%Y%m%d%H%M%S') + '{:03d}'.format(now.microsecond // 1000)
-    return 'CH{}{:06d}'.format(ts, random.randint(0, 999999))
+    return '{}{:06d}'.format(ts, random.randint(0, 999999))
 
 
 class OrderDao:

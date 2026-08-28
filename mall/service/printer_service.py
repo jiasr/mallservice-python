@@ -428,7 +428,7 @@ def build_ticket_content(order, shop):
     lines.append(LINE)
     # ===== 订单信息 =====
     # 飞鹅标签注意：<L> 为字体变高一倍（不是普通左对齐），普通行不加标签即为正常字号左对齐
-    lines.append("订单号: {}".format(order.get('orderNo', '')))
+    lines.append("单号: {}".format(order.get('orderNo', '')))
     if order.get('createTime'):
         lines.append("下单时间: {}".format(order.get('createTime')))
     if order.get('paidAt'):
@@ -451,14 +451,14 @@ def build_ticket_content(order, shop):
         qty = it.get('quantity', 0)
         subtotal = _fen_to_yuan(it.get('subtotal'))
         # 名称 + 数量 + 小计压缩为一行（长名称自动换行）
-        lines.append("{} x{}  ¥{:.2f}".format(name, qty, subtotal))
+        lines.append("{} x{}  ￥{:.2f}".format(name, qty, subtotal))
     lines.append(LINE)
     # ===== 金额汇总 =====
     lines.append("商品金额: {:.2f}".format(_fen_to_yuan(order.get('goodsAmount'))))
     lines.append("运费: {:.2f}".format(_fen_to_yuan(order.get('freightAmount'))))
     if (order.get('discountAmount') or 0) > 0:
         lines.append("优惠: -{:.2f}".format(_fen_to_yuan(order.get('discountAmount'))))
-    lines.append("实付金额: ¥{:.2f}".format(_fen_to_yuan(order.get('payAmount'))))
+    lines.append("实付金额: ￥{:.2f}".format(_fen_to_yuan(order.get('payAmount'))))
     lines.append(LINE)
     # ===== 收货信息 =====
     consignee = order.get('consignee', '')
