@@ -235,13 +235,13 @@ def test_print(brand, sn):
     if brand == "feie":
         now = time.strftime("%Y-%m-%d %H:%M:%S")
         content = "<CB>飞鹅打印测试</CB><BR>"
-        content += "<L>打印机连接正常</L><BR>"
-        content += "<L>测试时间：{}</L><BR>".format(now)
-        content += "<BR><L>商城订单小票打印对接成功</L><BR>"
+        content += "打印机连接正常<BR>"
+        content += "测试时间：{}<BR>".format(now)
+        content += "<BR>商城订单小票打印对接成功<BR>"
         result = _feie_request(config, sn, content, backurl=config.get("backurl", ""))
         if result.get("ret") == 0:
             _write_log(order_no='', biz_type=2, sn=sn,
-                       feie_order_id=result.get("data", ""), status=0)
+                       feie_order_id=result.get("data", ""), status=0, trigger_type='test')
             return {"success": True, "message": "打印指令已发送（订单号: {}）".format(result.get("data", ""))}
         return {"success": False, "message": "打印失败: {}".format(result.get("msg", "未知错误"))}
 
@@ -250,14 +250,18 @@ def test_print(brand, sn):
 
 # ==================== 打印流水 ====================
 
-def _write_log(order_no, biz_type, sn, feie_order_id, status, message=''):
-    """写入打印流水"""
+def _write_log(order_no, biz_type, sn, feie_order_id, status, message='', trigger_type=''):
+    """写入打印流水
+
+    trigger_type: auto=支付回调自动打印 manual=手工界面点击 test=测试打印
+    """
     session = get_session()
     with session.begin():
         session.add(PrintLog(
             id=uuid.uuid4().hex,
             order_no=order_no or '',
             biz_type=biz_type,
+            trigger_type=trigger_type or '',
             printer_sn=sn or '',
             feie_order_id=feie_order_id or '',
             status=status,
@@ -345,6 +349,7 @@ def list_logs(order_no='', status='', page_num=1, page_size=10):
             'id': r.id,
             'orderNo': r.order_no,
             'bizType': r.biz_type,
+            'triggerType': r.trigger_type or '',
             'printerSn': r.printer_sn,
             'feieOrderId': r.feie_order_id,
             'status': r.status,
@@ -422,15 +427,16 @@ def build_ticket_content(order, shop):
         lines.append("<C>电话: {}</C>".format(shop.get('phone')))
     lines.append(LINE)
     # ===== 订单信息 =====
-    lines.append("<L>订单号: {}</L>".format(order.get('orderNo', '')))
+    # 飞鹅标签注意：<L> 为字体变高一倍（不是普通左对齐），普通行不加标签即为正常字号左对齐
+    lines.append("订单号: {}".format(order.get('orderNo', '')))
     if order.get('createTime'):
-        lines.append("<L>下单时间: {}</L>".format(order.get('createTime')))
+        lines.append("下单时间: {}".format(order.get('createTime')))
     if order.get('paidAt'):
-        lines.append("<L>支付时间: {}</L>".format(order.get('paidAt')))
-    lines.append("<L>订单状态: {}</L>".format(_status_name(order.get('status'))))
-    lines.append("<L>支付方式: {}</L>".format(_payment_name(order.get('paymentMethod'))))
+        lines.append("支付时间: {}".format(order.get('paidAt')))
+    lines.append("订单状态: {}".format(_status_name(order.get('status'))))
+    lines.append("支付方式: {}".format(_payment_name(order.get('paymentMethod'))))
     if order.get('shippingNo'):
-        lines.append("<L>物流: {} {}</L>".format(
+        lines.append("物流: {} {}".format(
             order.get('shippingCompany') or '', order.get('shippingNo')))
     lines.append(LINE)
     # ===== 商品明细（单行紧凑排版） =====
@@ -445,28 +451,28 @@ def build_ticket_content(order, shop):
         qty = it.get('quantity', 0)
         subtotal = _fen_to_yuan(it.get('subtotal'))
         # 名称 + 数量 + 小计压缩为一行（长名称自动换行）
-        lines.append("<L>{} x{}  ¥{:.2f}</L>".format(name, qty, subtotal))
+        lines.append("{} x{}  ¥{:.2f}".format(name, qty, subtotal))
     lines.append(LINE)
     # ===== 金额汇总 =====
-    lines.append("<L>商品金额: {:.2f}</L>".format(_fen_to_yuan(order.get('goodsAmount'))))
-    lines.append("<L>运费: {:.2f}</L>".format(_fen_to_yuan(order.get('freightAmount'))))
+    lines.append("商品金额: {:.2f}".format(_fen_to_yuan(order.get('goodsAmount'))))
+    lines.append("运费: {:.2f}".format(_fen_to_yuan(order.get('freightAmount'))))
     if (order.get('discountAmount') or 0) > 0:
-        lines.append("<L>优惠: -{:.2f}</L>".format(_fen_to_yuan(order.get('discountAmount'))))
-    lines.append("<L>实付金额: ¥{:.2f}</L>".format(_fen_to_yuan(order.get('payAmount'))))
+        lines.append("优惠: -{:.2f}".format(_fen_to_yuan(order.get('discountAmount'))))
+    lines.append("实付金额: ¥{:.2f}".format(_fen_to_yuan(order.get('payAmount'))))
     lines.append(LINE)
     # ===== 收货信息 =====
     consignee = order.get('consignee', '')
     phone = order.get('phone', '')
     if consignee or phone:
-        lines.append("<L>收货人: {} {}</L>".format(consignee, phone))
+        lines.append("收货人: {} {}".format(consignee, phone))
     if order.get('address'):
-        lines.append("<L>收货地址: {}</L>".format(order['address']))
+        lines.append("收货地址: {}".format(order['address']))
     if order.get('remark'):
-        lines.append("<L>备注: {}</L>".format(order['remark']))
+        lines.append("备注: {}".format(order['remark']))
     lines.append(LINE)
     # ===== 页脚 =====
     lines.append("<C>谢谢惠顾，欢迎再次光临！</C>")
-    lines.append("<L>打印时间: {}</L>".format(time.strftime("%Y-%m-%d %H:%M:%S")))
+    lines.append("打印时间: {}".format(time.strftime("%Y-%m-%d %H:%M:%S")))
     # ===== 订单号二维码（飞鹅<QR>固定底部居中，内容为订单号，供门店PDA扫码） =====
     order_no = order.get('orderNo', '')
     if order_no:
@@ -477,9 +483,10 @@ def build_ticket_content(order, shop):
 
 # ==================== 打印入口 ====================
 
-def print_ticket(order_no, sn=''):
+def print_ticket(order_no, sn='', trigger_type='manual'):
     """打印订单小票（手动/自动共用入口）
 
+    trigger_type: manual=手工界面点击 auto=支付回调自动打印
     流程：查订单 → 生成 content → 策略选设备 → 飞鹅提交 → 写流水
     """
     from mall.db.models.Order.sql import OrderDao
@@ -515,11 +522,11 @@ def print_ticket(order_no, sn=''):
     if result.get('ret') == 0:
         _write_log(order_no=order_no, biz_type=1, sn=device.get('sn', ''),
                    feie_order_id=result.get('data', ''), status=0,
-                   message="已提交飞鹅受理")
+                   message="已提交飞鹅受理", trigger_type=trigger_type)
         return {"success": True, "message": "打印指令已发送"}
     _write_log(order_no=order_no, biz_type=1, sn=device.get('sn', ''),
                feie_order_id='', status=2,
-               message="飞鹅受理失败: {}".format(result.get('msg', '未知错误')))
+               message="飞鹅受理失败: {}".format(result.get('msg', '未知错误')), trigger_type=trigger_type)
     return {"success": False, "message": "打印失败: {}".format(result.get('msg', '未知错误'))}
 
 

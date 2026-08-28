@@ -265,5 +265,5 @@ def _auto_print_after_pay(order_no):
     if printer_service.has_ticket_printed(order_no):
         LOG.info("订单小票已打印过，跳过自动打印: 订单号={}".format(order_no))
         return
-    result = printer_service.print_ticket(order_no)
+    result = printer_service.print_ticket(order_no, trigger_type='auto')
     LOG.info("支付成功自动打印小票: 订单号={}, 结果={}".format(order_no, result))

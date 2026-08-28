@@ -16,6 +16,7 @@ class PrintLog(BASE, DbBase):
     id = Column(String(32), primary_key=True, comment='UUID主键')
     order_no = Column(String(64), default='', comment='订单号')
     biz_type = Column(SmallInteger, default=1, comment='业务类型 1=订单小票 2=测试打印')
+    trigger_type = Column(String(16), default='', comment='触发方式 auto=支付回调自动 manual=手工点击 test=测试打印')
     printer_sn = Column(String(32), default='', comment='打印设备SN')
     feie_order_id = Column(String(64), default='', comment='飞鹅受理订单ID(Open_printMsg返回,回调匹配用)')
     status = Column(SmallInteger, default=0, comment='打印状态 0=已提交 1=打印成功 2=打印失败')
