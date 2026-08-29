@@ -70,6 +70,18 @@ def cancel(user_id, data):
     return OrderDao.cancel(data.get('orderId', ''), user_id)
 
 
+def delete(user_id, data):
+    return OrderDao.delete(data.get('orderId', ''), user_id)
+
+
+def confirm(user_id, data):
+    return OrderDao.confirm(data.get('orderId', ''), user_id)
+
+
+def remind(user_id, data):
+    return OrderDao.remind(data.get('orderId', ''), user_id)
+
+
 def order_list(user_id, params):
     return OrderDao.list(
         user_id,

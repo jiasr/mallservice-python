@@ -485,7 +485,7 @@ class OrderDao:
             if order.order_status != 0:
                 raise Fail("ORDER_CANNOT_CANCEL", {}, "当前订单状态不可取消")
 
-            order.order_status = 4  # 已取消
+            order.order_status = 3  # 取消归入已完成
             order.pay_status = 2 if order.pay_status == 1 else order.pay_status
 
             # 恢复库存
@@ -500,4 +500,52 @@ class OrderDao:
                         remark='取消订单恢复库存: 订单 {}'.format(order_id),
                     )
 
+        return {'success': True}
+
+    @classmethod
+    def delete(cls, order_id, user_id):
+        """删除订单（仅已完成/已取消可删除，物理删除订单及明细）"""
+        session = get_session()
+        with session.begin():
+            order = session.query(Order).filter(
+                Order.order_id == order_id,
+                Order.user_id == user_id,
+            ).first()
+            if not order:
+                raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
+            if order.order_status not in (3, 4):
+                raise Fail("ORDER_CANNOT_DELETE", {}, "当前订单状态不可删除")
+            session.query(OrderItem).filter(OrderItem.order_id == order_id).delete()
+            session.delete(order)
+        return {'success': True}
+
+    @classmethod
+    def confirm(cls, order_id, user_id):
+        """确认收货（待收货 → 已完成）"""
+        session = get_session()
+        with session.begin():
+            order = session.query(Order).filter(
+                Order.order_id == order_id,
+                Order.user_id == user_id,
+            ).with_for_update().first()
+            if not order:
+                raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
+            if order.order_status != 2:
+                raise Fail("ORDER_CANNOT_CONFIRM", {}, "当前订单状态不可确认收货")
+            order.order_status = 3  # 已完成
+        return {'success': True}
+
+    @classmethod
+    def remind(cls, order_id, user_id):
+        """提醒发货（仅待发货可提醒）"""
+        session = get_session()
+        with session.begin():
+            order = session.query(Order).filter(
+                Order.order_id == order_id,
+                Order.user_id == user_id,
+            ).with_for_update().first()
+            if not order:
+                raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
+            if order.order_status != 1:
+                raise Fail("ORDER_CANNOT_REMIND", {}, "当前订单状态不可提醒发货")
         return {'success': True}

@@ -146,13 +146,7 @@ api = Api(app, version='1.0', title='inspur cloud rest api doc', description='in
 @app.before_request
 def log_req1():
 
-    LOG.error(f"handle_raw_data")
-    # """在请求被路由之前拦截，处理非标准请求"""
-    # 检查请求内容是否是裸数据（没有HTTP方法标记）
-    # 注意：这个方法只能捕获到包含至少部分HTTP头的请求
-    # 对于完全裸的TCP数据，Werkzeug仍然会先报错
-
-    LOG.info(request.path)
+    LOG.info(f"req: {request.path}")
 
 @app.after_request
 def log_req2(res):

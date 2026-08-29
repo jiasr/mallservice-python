@@ -122,6 +122,42 @@ class OrderCancel(Resource):
         return order_service.cancel(user_id, data)
 
 
+@ns_order.route('/delete', methods=['POST'])
+class OrderDelete(Resource):
+    """用户删除订单（仅已完成/已取消）"""
+    @deco_catch_view_exception("删除订单")
+    def post(self):
+        user_id = _get_user_id()
+        if not user_id:
+            return {"success": False, "message": "请先登录"}
+        data = json.loads(request.data)
+        return order_service.delete(user_id, data)
+
+
+@ns_order.route('/confirm', methods=['POST'])
+class OrderConfirm(Resource):
+    """用户确认收货（待收货 → 已完成）"""
+    @deco_catch_view_exception("确认收货")
+    def post(self):
+        user_id = _get_user_id()
+        if not user_id:
+            return {"success": False, "message": "请先登录"}
+        data = json.loads(request.data)
+        return order_service.confirm(user_id, data)
+
+
+@ns_order.route('/remind', methods=['POST'])
+class OrderRemind(Resource):
+    """用户提醒发货（仅待发货可提醒）"""
+    @deco_catch_view_exception("提醒发货")
+    def post(self):
+        user_id = _get_user_id()
+        if not user_id:
+            return {"success": False, "message": "请先登录"}
+        data = json.loads(request.data)
+        return order_service.remind(user_id, data)
+
+
 # ==================== Admin 端：订单管理 ====================
 
 @ns_order.route('/admin/list', methods=['GET'])
