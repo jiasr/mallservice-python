@@ -278,6 +278,7 @@ CREATE TABLE t_mall_cart (
 	sku_id VARCHAR(255) NOT NULL COMMENT '商品SKU ID', 
 	quantity INTEGER COMMENT '加购数量', 
 	is_selected INTEGER COMMENT '是否选中 1是 0否', 
+	cart_version INTEGER COMMENT '购物车版本号(乐观锁，用户级单调递增)', 
 	create_time DATETIME COMMENT '创建时间', 
 	update_time DATETIME COMMENT '更新时间', 
 	PRIMARY KEY (id)

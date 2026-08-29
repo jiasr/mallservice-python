@@ -49,6 +49,21 @@ def load_config():
     CONF.log_opt_values(LOG, logging.INFO)
 
 
+def _migrate_missing_columns(engine, inspector):
+    """幂等补齐新增字段（老库启动时自动 ALTER TABLE）"""
+    with engine.connect() as conn:
+        # t_mall_cart.cart_version：购物车版本号（乐观锁，2026-08-29 新增）
+        cart_columns = {c["name"] for c in inspector.get_columns("t_mall_cart")}
+        if "cart_version" not in cart_columns:
+            conn.execute(
+                "ALTER TABLE t_mall_cart ADD COLUMN cart_version INTEGER "
+                "COMMENT '购物车版本号(乐观锁，用户级单调递增)' DEFAULT 0"
+            )
+            LOG.info("t_mall_cart 已新增列 cart_version")
+        else:
+            LOG.info("t_mall_cart.cart_version 已存在，跳过")
+
+
 def check_schema():
     """仅检查核心表是否存在，不建表、不初始化数据。
 
@@ -66,6 +81,9 @@ def check_schema():
             "全新部署请先执行: mysql -u root -p mall < mall/db/migration/init.sql".format(missing)
         )
         return False
+
+    # 老库增量迁移：补齐新增列（幂等）
+    _migrate_missing_columns(engine, inspector)
 
     LOG.info("数据库表结构校验通过（{} 张核心表均存在）".format(len(_CORE_TABLES)))
     return True

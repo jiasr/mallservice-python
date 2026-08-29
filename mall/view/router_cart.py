@@ -67,3 +67,25 @@ class CartClear(Resource):
         if not user_id:
             return {"success": False, "message": "请先登录"}
         return cart_service.clear_cart(user_id)
+
+
+@ns_cart.route('/sync', methods=['POST'])
+class CartSync(Resource):
+    @deco_catch_view_exception("批量同步购物车")
+    def post(self):
+        user_id = _get_user_id()
+        if not user_id:
+            return {"success": False, "message": "请先登录"}
+        data = json.loads(request.data)
+        return cart_service.sync_cart(user_id, data)
+
+
+@ns_cart.route('/merge', methods=['POST'])
+class CartMerge(Resource):
+    @deco_catch_view_exception("合并游客购物车")
+    def post(self):
+        user_id = _get_user_id()
+        if not user_id:
+            return {"success": False, "message": "请先登录"}
+        data = json.loads(request.data)
+        return cart_service.merge_guest_cart(user_id, data)

@@ -15,7 +15,7 @@ LOG = logging.getLogger(__name__)
 
 def result_ok(data=""):
     data = {"errCode": None, "errMessage": None, "exceptionMsg": None, "flag": True, "resData": data}
-    LOG.info(data)
+    LOG.info(json.dumps(data, ensure_ascii=False))
     return data
 
 def result_fail(error_code, params, error_massage=None):

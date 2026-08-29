@@ -47,6 +47,30 @@ class UserWxPhone(Resource):
         return user_service.wx_phone(user_id, data)
 
 
+@ns_user.route('/base_info', methods=['GET'])
+class UserBaseInfo(Resource):
+    """用户基础信息（昵称/头像/手机号），轻量接口"""
+    def get(self):
+        user_id = request.headers.get('token', '') or request.headers.get('userid', '')
+        return user_service.user_base_info(user_id)
+
+
+@ns_user.route('/order_count', methods=['GET'])
+class UserOrderCount(Resource):
+    """各状态订单数量，个人中心订单入口角标"""
+    def get(self):
+        user_id = request.headers.get('token', '') or request.headers.get('userid', '')
+        return user_service.user_order_count(user_id)
+
+
+@ns_user.route('/customer_service', methods=['GET'])
+class UserCustomerService(Resource):
+    """客服信息（服务时间/客服电话）"""
+    def get(self):
+        user_id = request.headers.get('token', '') or request.headers.get('userid', '')
+        return user_service.user_customer_service(user_id)
+
+
 @ns_user.route('/info', methods=['GET'])
 class UserInfo(Resource):
     def get(self):

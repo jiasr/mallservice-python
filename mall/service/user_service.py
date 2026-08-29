@@ -138,13 +138,13 @@ def admin_user_delete(user_id):
     return {"success": True}
 
 
-@deco_catch_view_exception("用户信息")
-def user_info(user_id):
+@deco_catch_view_exception("用户基础信息")
+def user_base_info(user_id):
+    """用户基础信息（昵称/头像/手机号），轻量接口，供购物车等仅需登录态校验的页面使用"""
     if not user_id:
         return {}
     from mall.db.models.User.model import User
     from mall.db.engines.mysql import get_session
-    from mall.db.models.Order.sql import OrderDao
 
     session = get_session()
     nickname = ''
@@ -157,9 +157,6 @@ def user_info(user_id):
             avatar = user.avatar or ''
             phone = user.phone or ''
 
-    counts = OrderDao.count_by_status(user_id) or {}
-    data = counts.get('data', [])
-
     # 相对路径动态拼接完整URL（避免硬编码IP/端口），已在函数内import避免循环依赖
     try:
         from mall.db.engines.s3 import get_image_display_url
@@ -169,7 +166,40 @@ def user_info(user_id):
 
     return {
         'userInfo': {'avatarUrl': avatar_url, 'nickName': nickname, 'phoneNumber': phone},
+    }
+
+
+@deco_catch_view_exception("用户订单统计")
+def user_order_count(user_id):
+    """各状态订单数量，仅个人中心订单入口角标使用"""
+    if not user_id:
+        return {}
+    from mall.db.models.Order.sql import OrderDao
+
+    counts = OrderDao.count_by_status(user_id) or {}
+    data = counts.get('data', [])
+    return {'orderTagInfos': data}
+
+
+@deco_catch_view_exception("客服信息")
+def user_customer_service(user_id):
+    """客服信息（服务时间/客服电话），独立接口，目前后端暂无配置数据源，返回空结构预留"""
+    if not user_id:
+        return {}
+    return {'customerServiceInfo': {}}
+
+
+@deco_catch_view_exception("用户信息")
+def user_info(user_id):
+    """聚合用户信息（兼容旧接口，组合基础信息 + 订单统计）"""
+    if not user_id:
+        return {}
+    base = user_base_info(user_id)
+    order = user_order_count(user_id)
+    customer = user_customer_service(user_id)
+    return {
+        'userInfo': base['userInfo'],
         'countsData': [],
-        'orderTagInfos': data,
-        'customerServiceInfo': {},
+        'orderTagInfos': order['orderTagInfos'],
+        'customerServiceInfo': customer['customerServiceInfo'],
     }

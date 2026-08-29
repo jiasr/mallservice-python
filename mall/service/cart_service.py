@@ -25,3 +25,17 @@ def delete_cart(user_id, data):
 
 def clear_cart(user_id):
     return CartDao.clear_cart(user_id)
+
+
+def sync_cart(user_id, data):
+    """批量同步购物车变更（乐观锁）"""
+    return CartDao.sync_cart(
+        user_id,
+        data.get('items') or [],
+        int(data.get('version') or 0)
+    )
+
+
+def merge_guest_cart(user_id, data):
+    """登录后合并游客本地购物车"""
+    return CartDao.merge_guest_cart(user_id, data.get('items') or [])
