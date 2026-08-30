@@ -90,3 +90,12 @@ class AdminGoodsPullOffSale(Resource):
     @admin_required
     def post(self, id):
         return goods_service.admin_goods_pull_off_sale(id)
+
+
+@ns_goods.route('/admin/goods/move-category', methods=['POST'])
+class AdminGoodsMoveCategory(Resource):
+    """批量移动商品分类：{spuIds: [...], categoryId: "..."}"""
+    @admin_required
+    def post(self):
+        data = json.loads(request.data)
+        return goods_service.admin_goods_move_category(data)

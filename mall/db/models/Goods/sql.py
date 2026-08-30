@@ -13,6 +13,7 @@ from mall.db.models.GoodsCatalog.model import GoodsCatalog
 from mall.db.models.Stock.sql import InvGoodsDao
 from mall.common.constant import SETTING_LIST_DEFAILT_PAGESIZE
 from mall.db.engines.s3 import get_image_display_url
+from mall.common.common import Fail
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
@@ -461,6 +462,27 @@ class GoodsSpuDao:
             spu.stock_quantity = total_stock
             session.flush()
             return {"success": True}
+
+    @classmethod
+    def move_category(cls, spu_ids, category_id):
+        """批量移动商品分类（将 spuIds 指定的商品移动到 categoryId 分类下）"""
+        spu_ids = spu_ids or []
+        if not spu_ids:
+            raise Fail("MOVE_CATEGORY_FAIL", None, "请选择要移动的商品")
+        if not category_id:
+            raise Fail("MOVE_CATEGORY_FAIL", None, "请选择目标分类")
+        session = get_session()
+        with session.begin():
+            # 校验目标分类存在
+            catalog = session.query(GoodsCatalog).filter(
+                GoodsCatalog.id == category_id
+            ).first()
+            if not catalog:
+                raise Fail("CATEGORY_NOT_FOUND", {"categoryId": category_id}, "目标分类不存在")
+            count = session.query(GoodsSpu).filter(
+                GoodsSpu.spu_id.in_(spu_ids)
+            ).update({GoodsSpu.category_id: category_id}, synchronize_session=False)
+        return {"success": True, "count": count}
 
     @classmethod
     def delete_spu(cls, id):

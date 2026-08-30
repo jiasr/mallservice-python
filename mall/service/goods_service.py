@@ -49,6 +49,15 @@ def admin_goods_update(id, data):
     return GoodsSpuDao.update_spu(id, data)
 
 
+@deco_catch_view_exception("移动商品分类")
+def admin_goods_move_category(data):
+    """批量移动商品分类：{spuIds: [...], categoryId: "..."}"""
+    return GoodsSpuDao.move_category(
+        data.get("spuIds", []),
+        data.get("categoryId", ""),
+    )
+
+
 @deco_catch_view_exception("删除商品")
 def admin_goods_delete(id):
     return GoodsSpuDao.delete_spu(id)
