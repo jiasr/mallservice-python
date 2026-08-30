@@ -5,7 +5,7 @@ from flask_restx import Namespace, Resource
 from oslo_log import log as logging
 
 from mall.common.common import deco_catch_view_exception, admin_required
-from mall.service import order_service
+from mall.service import order_service, pick_service
 
 app_order = Blueprint('order', __name__)
 ns_order = Namespace("order", description="订单", path="/v1/order")
@@ -204,12 +204,71 @@ class AdminOrderProcess(Resource):
         return order_service.admin_process(orderNo, data)
 
 
+# ==================== Admin 端：扫码备货记录 ====================
+
+@ns_order.route('/admin/pick/create', methods=['POST'])
+class AdminPickCreate(Resource):
+    """记录备货完成（同单重复备货拒绝）"""
+    @admin_required
+    @deco_catch_view_exception("记录备货完成")
+    def post(self):
+        data = json.loads(request.data)
+        data['operatorId'] = request.admin_id or 0
+        data['operatorName'] = request.admin_username or ''
+        return pick_service.pick_record_create(data)
+
+
+@ns_order.route('/admin/pick/check', methods=['GET'])
+class AdminPickCheck(Resource):
+    """查询订单是否已备货"""
+    @admin_required
+    @deco_catch_view_exception("查询订单备货状态")
+    def get(self):
+        return pick_service.pick_record_check(request.args.get('orderNo', ''))
+
+
+@ns_order.route('/admin/pick/list', methods=['GET'])
+class AdminPickList(Resource):
+    """备货记录列表（分页 + 订单号筛选）"""
+    @admin_required
+    @deco_catch_view_exception("备货记录列表")
+    def get(self):
+        return pick_service.pick_record_list(request.args.to_dict())
+
+
 @ns_order.route('/admin/delete/<orderNo>', methods=['POST'])
 class AdminOrderDelete(Resource):
     @admin_required
     @deco_catch_view_exception("管理员删除订单")
     def post(self, orderNo):
-        return order_service.cancel('', {'orderId': orderNo})
+        return order_service.admin_delete(orderNo)
+
+
+@ns_order.route('/admin/recycle/list', methods=['GET'])
+class AdminOrderRecycleList(Resource):
+    """回收站订单列表"""
+    @admin_required
+    @deco_catch_view_exception("回收站订单列表")
+    def get(self):
+        return order_service.admin_recycle_list(request.args.to_dict())
+
+
+@ns_order.route('/admin/recycle/restore/<orderNo>', methods=['POST'])
+class AdminOrderRecycleRestore(Resource):
+    """回收站恢复订单"""
+    @admin_required
+    @deco_catch_view_exception("回收站恢复订单")
+    def post(self, orderNo):
+        return order_service.admin_recycle_restore(orderNo)
+
+
+@ns_order.route('/admin/recycle/purge/<orderNo>', methods=['POST'])
+class AdminOrderRecyclePurge(Resource):
+    """回收站彻底删除订单"""
+    @admin_required
+    @deco_catch_view_exception("回收站彻底删除订单")
+    def post(self, orderNo):
+        return order_service.admin_recycle_purge(orderNo)
 
 
 @ns_order.route('/admin/refund', methods=['POST'])

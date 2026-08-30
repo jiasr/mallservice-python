@@ -310,6 +310,8 @@ CREATE TABLE t_mall_order (
 	pickup_code VARCHAR(10) COMMENT '自提核销码', 
 	pickup_expire_time DATETIME COMMENT '自提截止时间', 
 	local_delivery_time VARCHAR(50) COMMENT '同城配送时段', 
+	deleted INTEGER DEFAULT 0 COMMENT '软删除 0正常 1已删除(回收站)', 
+	deleted_at DATETIME COMMENT '删除时间', 
 	create_time DATETIME DEFAULT CURRENT_TIMESTAMP, 
 	update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
 	PRIMARY KEY (id), 

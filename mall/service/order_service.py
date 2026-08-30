@@ -74,6 +74,30 @@ def delete(user_id, data):
     return OrderDao.delete(data.get('orderId', ''), user_id)
 
 
+def admin_delete(order_no):
+    """后台删除订单（仅已完成/已取消可删除，软删除进回收站）"""
+    return OrderDao.admin_delete(order_no)
+
+
+def admin_recycle_list(params):
+    """回收站订单列表"""
+    return OrderDao.admin_recycle_list(
+        page_num=int(params.get('pageNum', 1)),
+        page_size=int(params.get('pageSize', 10)),
+        order_no=params.get('orderNo', ''),
+    )
+
+
+def admin_recycle_restore(order_no):
+    """回收站恢复订单"""
+    return OrderDao.admin_recycle_restore(order_no)
+
+
+def admin_recycle_purge(order_no):
+    """回收站彻底删除订单"""
+    return OrderDao.admin_recycle_purge(order_no)
+
+
 def confirm(user_id, data):
     return OrderDao.confirm(data.get('orderId', ''), user_id)
 
@@ -205,6 +229,7 @@ def admin_refund(order_no, data):
         if ord:
             ord.pay_status = 2
             ord.order_status = 4
+            ord.canceled_at = datetime.now()
 
     LOG.info("订单 {} 退款成功, 金额: {}分".format(order_no, refund_amount))
     return {'success': True, 'refundAmount': refund_amount}

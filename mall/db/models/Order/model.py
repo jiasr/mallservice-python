@@ -23,6 +23,9 @@ class Order(BASE, DbBase):
     remark = Column(String(500), default='', comment='买家留言')
     payment_method = Column(String(32), default='', comment='支付方式')
     paid_at = Column(DateTime, comment='支付时间')
+    shipped_at = Column(DateTime, comment='发货时间')
+    completed_at = Column(DateTime, comment='完成时间')
+    canceled_at = Column(DateTime, comment='取消时间')
     transaction_id = Column(String(64), default='', comment='微信支付交易号(用于退款)')
     shipping_company = Column(String(100), default='', comment='物流公司')
     shipping_no = Column(String(100), default='', comment='物流单号')
@@ -32,6 +35,8 @@ class Order(BASE, DbBase):
     pickup_code = Column(String(10), default='', comment='自提核销码')
     pickup_expire_time = Column(DateTime, comment='自提截止时间')
     local_delivery_time = Column(String(50), default='', comment='同城配送时段')
+    deleted = Column(Integer, default=0, comment='软删除 0正常 1已删除(回收站)')
+    deleted_at = Column(DateTime, comment='删除时间')
     create_time = Column(DateTime, default=datetime.now)
     update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 

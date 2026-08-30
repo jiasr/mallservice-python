@@ -41,10 +41,10 @@ class OrderDao:
 
     @classmethod
     def list(cls, user_id, page_num=1, page_size=10, order_status=None):
-        """获取订单列表"""
+        """获取订单列表（不含回收站已删除订单）"""
         session = get_session()
         with session.begin():
-            q = session.query(Order).filter(Order.user_id == user_id)
+            q = session.query(Order).filter(Order.user_id == user_id, Order.deleted == 0)
             if order_status is not None and int(order_status) >= 0:
                 q = q.filter(Order.order_status == int(order_status))
             total = q.count()
@@ -60,11 +60,11 @@ class OrderDao:
         """获取各状态订单数量"""
         session = get_session()
         with session.begin():
-            total = session.query(Order).filter(Order.user_id == user_id).count()
-            pending_pay = session.query(Order).filter(Order.user_id == user_id, Order.order_status == 0).count()
-            pending_deliver = session.query(Order).filter(Order.user_id == user_id, Order.order_status == 1).count()
-            pending_receipt = session.query(Order).filter(Order.user_id == user_id, Order.order_status == 2).count()
-            complete = session.query(Order).filter(Order.user_id == user_id, Order.order_status == 3).count()
+            total = session.query(Order).filter(Order.user_id == user_id, Order.deleted == 0).count()
+            pending_pay = session.query(Order).filter(Order.user_id == user_id, Order.deleted == 0, Order.order_status == 0).count()
+            pending_deliver = session.query(Order).filter(Order.user_id == user_id, Order.deleted == 0, Order.order_status == 1).count()
+            pending_receipt = session.query(Order).filter(Order.user_id == user_id, Order.deleted == 0, Order.order_status == 2).count()
+            complete = session.query(Order).filter(Order.user_id == user_id, Order.deleted == 0, Order.order_status == 3).count()
             return {'data': [
                 {'orderNum': pending_pay},
                 {'orderNum': pending_deliver},
@@ -83,14 +83,18 @@ class OrderDao:
             'parentOrderNo': '',
             'storeId': '1000',
             'storeName': '',
-            'orderStatus': cls._status_to_frontend(order.order_status),
+            'orderStatus': order.order_status,
             'orderStatusName': cls._status_name(order.order_status),
             'paymentAmount': order.pay_amount,
             'totalAmount': order.total_amount,
             'freightFee': order.freight_amount,
             'deliveryType': order.delivery_type,
             'logisticsVO': {'logisticsNo': ''},
-            'createTime': order.create_time.strftime('%Y-%m-%d %H:%M:%S') if order.create_time else '',
+            'createTime': cls._fmt_dt(order.create_time),
+            'paidAt': cls._fmt_dt(order.paid_at),
+            'shippedAt': cls._fmt_dt(order.shipped_at),
+            'completedAt': cls._fmt_dt(order.completed_at),
+            'canceledAt': cls._fmt_dt(order.canceled_at),
             'orderItemVOs': [{
                 'id': item.id,
                 'goodsPictureUrl': get_image_display_url(item.thumb) if item.thumb else '',
@@ -103,10 +107,10 @@ class OrderDao:
 
     @classmethod
     def admin_list(cls, page_num=1, page_size=10, order_status=None, order_no='', consignee='', phone='', pay_status=None):
-        """管理员订单列表（查所有用户）"""
+        """管理员订单列表（查所有用户，不含回收站已删除订单）"""
         session = get_session()
         with session.begin():
-            q = session.query(Order)
+            q = session.query(Order).filter(Order.deleted == 0)
             if order_status is not None and int(order_status) >= 0:
                 q = q.filter(Order.order_status == int(order_status))
             # 支付/退款状态筛选，支持逗号分隔多值: 1=已支付 2=已退款
@@ -138,10 +142,18 @@ class OrderDao:
                 return {'success': False, 'message': '订单不存在'}
             if 'shippingCompany' in data:
                 order.order_status = 2
+                order.shipped_at = datetime.now()
                 order.shipping_company = data.get('shippingCompany', '')
                 order.shipping_no = data.get('shippingNo', '')
             elif data.get('action') == 'complete':
                 order.order_status = 3
+                order.completed_at = datetime.now()
+            elif int(data.get('status', 0)) == -1 or data.get('action') == 'cancel':
+                # 后台取消订单：仅待付款可取消（已付款请走退款）
+                if order.order_status != 0:
+                    return {'success': False, 'message': '当前订单状态不可取消'}
+                order.order_status = 4
+                order.canceled_at = datetime.now()
             return {'success': True}
 
     @classmethod
@@ -178,8 +190,13 @@ class OrderDao:
             'freightAmount': order.freight_amount,
             'deliveryType': order.delivery_type,
             'remark': order.remark,
-            'createTime': order.create_time.strftime('%Y-%m-%d %H:%M:%S') if order.create_time else '',
-            'paidAt': order.paid_at.strftime('%Y-%m-%d %H:%M:%S') if order.paid_at else '',
+            'createTime': cls._fmt_dt(order.create_time),
+            'paidAt': cls._fmt_dt(order.paid_at),
+            'payTime': cls._fmt_dt(order.paid_at),
+            'shippedAt': cls._fmt_dt(order.shipped_at),
+            'completedAt': cls._fmt_dt(order.completed_at),
+            'canceledAt': cls._fmt_dt(order.canceled_at),
+            'deletedAt': cls._fmt_dt(order.deleted_at),
             'paymentMethod': order.payment_method or '',
             'goodsAmount': goods_amount,
             'discountAmount': goods_amount + (order.freight_amount or 0) - (order.pay_amount or 0),
@@ -222,10 +239,9 @@ class OrderDao:
         return names.get(status, '未知')
 
     @staticmethod
-    def _status_to_frontend(status):
-        """后端状态 → 前端状态码（小程序订单列表/详情使用）"""
-        mapping = {0: 5, 1: 10, 2: 40, 3: 50, 4: 80}
-        return mapping.get(status, status)
+    def _fmt_dt(dt):
+        """格式化 DateTime 为 'YYYY-MM-DD HH:mm:ss'，空值返回 ''"""
+        return dt.strftime('%Y-%m-%d %H:%M:%S') if dt else ''
 
     @classmethod
     def preview(cls, user_id, items, province_code='', delivery_type=0):
@@ -430,6 +446,7 @@ class OrderDao:
             order = session.query(Order).filter(
                 Order.id == order_pk,
                 Order.user_id == user_id,
+                Order.deleted == 0,
             ).first()
             if not order:
                 raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
@@ -439,7 +456,7 @@ class OrderDao:
             return {
                 'orderId': order.order_id,
                 'orderNo': order.order_id,
-                'orderStatus': cls._status_to_frontend(order.order_status),
+                'orderStatus': order.order_status,
                 'orderStatusName': cls._status_name(order.order_status),
                 'paymentAmount': order.pay_amount,
                 'goodsAmountApp': order.total_amount,
@@ -451,8 +468,11 @@ class OrderDao:
                 'consigneeAddress': order.consignee_address,
                 'remark': order.remark,
                 'paymentMethod': order.payment_method,
-                'paidAt': order.paid_at.strftime('%Y-%m-%d %H:%M:%S') if order.paid_at else '',
-                'createTime': order.create_time.strftime('%Y-%m-%d %H:%M:%S') if order.create_time else '',
+                'paidAt': cls._fmt_dt(order.paid_at),
+                'shippedAt': cls._fmt_dt(order.shipped_at),
+                'completedAt': cls._fmt_dt(order.completed_at),
+                'canceledAt': cls._fmt_dt(order.canceled_at),
+                'createTime': cls._fmt_dt(order.create_time),
                 'logisticsVO': {'logisticsNo': ''},
                 'buttonVOs': [],
                 'orderItemVOs': [{
@@ -485,8 +505,9 @@ class OrderDao:
             if order.order_status != 0:
                 raise Fail("ORDER_CANNOT_CANCEL", {}, "当前订单状态不可取消")
 
-            order.order_status = 3  # 取消归入已完成
+            order.order_status = 4  # 已取消
             order.pay_status = 2 if order.pay_status == 1 else order.pay_status
+            order.canceled_at = datetime.now()
 
             # 恢复库存
             items = session.query(OrderItem).filter(OrderItem.order_id == order_id).all()
@@ -504,7 +525,7 @@ class OrderDao:
 
     @classmethod
     def delete(cls, order_id, user_id):
-        """删除订单（仅已完成/已取消可删除，物理删除订单及明细）"""
+        """删除订单（仅已完成/已取消可删除，软删除进回收站）"""
         session = get_session()
         with session.begin():
             order = session.query(Order).filter(
@@ -515,6 +536,60 @@ class OrderDao:
                 raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
             if order.order_status not in (3, 4):
                 raise Fail("ORDER_CANNOT_DELETE", {}, "当前订单状态不可删除")
+            order.deleted = 1
+            order.deleted_at = datetime.now()
+        return {'success': True}
+
+    @classmethod
+    def admin_delete(cls, order_id):
+        """后台删除订单（不限制用户，仅已完成/已取消可删除，软删除进回收站）"""
+        session = get_session()
+        with session.begin():
+            order = session.query(Order).filter(Order.order_id == order_id).first()
+            if not order:
+                raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
+            if order.order_status not in (3, 4):
+                raise Fail("ORDER_CANNOT_DELETE", {}, "当前订单状态不可删除")
+            order.deleted = 1
+            order.deleted_at = datetime.now()
+        return {'success': True}
+
+    @classmethod
+    def admin_recycle_list(cls, page_num=1, page_size=10, order_no=''):
+        """回收站订单列表（已删除订单）"""
+        session = get_session()
+        with session.begin():
+            q = session.query(Order).filter(Order.deleted == 1)
+            if order_no:
+                q = q.filter(Order.order_id.like('%' + order_no + '%'))
+            total = q.count()
+            q = q.order_by(Order.deleted_at.desc(), Order.create_time.desc()).limit(page_size).offset((page_num - 1) * page_size)
+            orders = q.all()
+            return {'data': {
+                'total': total,
+                'list': [cls._format_admin_order(o, session) for o in orders],
+            }}
+
+    @classmethod
+    def admin_recycle_restore(cls, order_id):
+        """回收站恢复订单"""
+        session = get_session()
+        with session.begin():
+            order = session.query(Order).filter(Order.order_id == order_id).first()
+            if not order:
+                raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
+            order.deleted = 0
+            order.deleted_at = None
+        return {'success': True}
+
+    @classmethod
+    def admin_recycle_purge(cls, order_id):
+        """回收站彻底删除（物理删除订单及明细，不可恢复）"""
+        session = get_session()
+        with session.begin():
+            order = session.query(Order).filter(Order.order_id == order_id).first()
+            if not order:
+                raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
             session.query(OrderItem).filter(OrderItem.order_id == order_id).delete()
             session.delete(order)
         return {'success': True}
@@ -533,6 +608,7 @@ class OrderDao:
             if order.order_status != 2:
                 raise Fail("ORDER_CANNOT_CONFIRM", {}, "当前订单状态不可确认收货")
             order.order_status = 3  # 已完成
+            order.completed_at = datetime.now()
         return {'success': True}
 
     @classmethod
