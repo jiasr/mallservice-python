@@ -177,6 +177,15 @@ class AdminOrderList(Resource):
         return order_service.admin_list(params)
 
 
+@ns_order.route('/admin/status-count', methods=['GET'])
+class AdminOrderStatusCount(Resource):
+    """订单各状态数量统计（含回收站）"""
+    @admin_required
+    @deco_catch_view_exception("订单状态数量统计")
+    def get(self):
+        return order_service.admin_status_count()
+
+
 @ns_order.route('/admin/detail', methods=['GET'])
 class AdminOrderDetail(Resource):
     @admin_required

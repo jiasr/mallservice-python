@@ -147,6 +147,11 @@ def admin_list(params):
     return data
 
 
+def admin_status_count():
+    """管理员订单各状态数量统计（0-4 各状态 + 回收站 + 全部）"""
+    return OrderDao.admin_status_count()
+
+
 def admin_process(order_no, data):
     return OrderDao.admin_process(order_no, data)
 

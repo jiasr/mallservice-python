@@ -136,6 +136,27 @@ class OrderDao:
             }}
 
     @classmethod
+    def admin_status_count(cls):
+        """管理员订单各状态数量统计：{0~4: 数量, recycle: 回收站, all: 全部}"""
+        session = get_session()
+        with session.begin():
+            rows = session.query(
+                Order.order_status, Order.deleted, func.count(Order.id)
+            ).group_by(Order.order_status, Order.deleted).all()
+        counts = {str(i): 0 for i in range(5)}
+        counts['recycle'] = 0
+        active_total = 0
+        for status, deleted, cnt in rows:
+            if deleted == 1:
+                counts['recycle'] += cnt
+            else:
+                key = str(status)
+                counts[key] = counts.get(key, 0) + cnt
+                active_total += cnt
+        counts['all'] = active_total
+        return counts
+
+    @classmethod
     def admin_process(cls, order_no, data):
         """管理员处理订单（发货）"""
         session = get_session()
