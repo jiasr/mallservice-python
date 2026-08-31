@@ -111,8 +111,11 @@ class OrderDao:
         session = get_session()
         with session.begin():
             q = session.query(Order).filter(Order.deleted == 0)
-            if order_status is not None and int(order_status) >= 0:
-                q = q.filter(Order.order_status == int(order_status))
+            # 订单状态筛选，支持逗号分隔多值，如: 3,4 = 已完成+已取消
+            if order_status is not None and str(order_status).strip():
+                statuses = [int(s) for s in str(order_status).split(',') if s.strip().isdigit()]
+                if statuses:
+                    q = q.filter(Order.order_status.in_(statuses))
             # 支付/退款状态筛选，支持逗号分隔多值: 1=已支付 2=已退款
             if pay_status:
                 statuses = [int(s) for s in str(pay_status).split(',') if s.strip().isdigit()]
