@@ -152,6 +152,11 @@ def admin_status_count():
     return OrderDao.admin_status_count()
 
 
+def admin_stats():
+    """管理员首页统计：总订单数、已支付订单数、销售额(分)"""
+    return OrderDao.admin_stats()
+
+
 def admin_process(order_no, data):
     return OrderDao.admin_process(order_no, data)
 

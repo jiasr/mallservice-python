@@ -157,6 +157,24 @@ class OrderDao:
         return counts
 
     @classmethod
+    def admin_stats(cls):
+        """管理员首页统计：总订单数、已支付订单数、销售额(单位:分)"""
+        session = get_session()
+        with session.begin():
+            order_count = session.query(Order).filter(
+                Order.deleted == 0).count()
+            pay_order_count = session.query(Order).filter(
+                Order.deleted == 0, Order.pay_status == 1).count()
+            sales_amount = session.query(
+                func.coalesce(func.sum(Order.pay_amount), 0)).filter(
+                Order.deleted == 0, Order.pay_status == 1).scalar() or 0
+        return {
+            'orderCount': order_count,
+            'payOrderCount': pay_order_count,
+            'salesAmount': int(sales_amount),
+        }
+
+    @classmethod
     def admin_process(cls, order_no, data):
         """管理员处理订单（发货）"""
         session = get_session()

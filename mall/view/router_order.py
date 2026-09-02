@@ -186,6 +186,15 @@ class AdminOrderStatusCount(Resource):
         return order_service.admin_status_count()
 
 
+@ns_order.route('/admin/stats', methods=['GET'])
+class AdminOrderStats(Resource):
+    """管理员首页统计：总订单数、已支付订单数、销售额(分)"""
+    @admin_required
+    @deco_catch_view_exception("管理员订单统计")
+    def get(self):
+        return order_service.admin_stats()
+
+
 @ns_order.route('/admin/detail', methods=['GET'])
 class AdminOrderDetail(Resource):
     @admin_required
