@@ -212,6 +212,16 @@ class AdminMenuDelete(Resource):
         return admin_role_service.menu_delete(menu_id=data.get("id"))
 
 
+@ns_admin.route('/menu/save_sort', methods=['POST'])
+class AdminMenuSaveSort(Resource):
+
+    @admin_required
+    @deco_catch_view_exception("保存菜单排序")
+    def post(self):
+        data = json.loads(request.data)
+        return admin_role_service.menu_save_sort(items=data.get("items") or [])
+
+
 # ==================== 管理员用户管理 ====================
 
 @ns_admin.route('/user/list', methods=['POST'])

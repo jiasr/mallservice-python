@@ -199,6 +199,30 @@ def menu_delete(menu_id):
         return {"message": "删除成功", "deleted_ids": list(ids_to_delete)}
 
 
+def menu_save_sort(items):
+    """保存菜单拖拽排序（整树全量更新）
+
+    items: [{id, parent_id, sort_order}, ...]，按前端拖拽后的树顺序全量覆盖。
+    仅更新 id/parent_id/sort_order 三个字段，避免影响其他配置。
+    """
+    if not items:
+        return {"message": "无排序数据"}
+    session = get_session()
+    with session.begin():
+        count = 0
+        for it in items:
+            menu = session.query(AdminMenu).filter(AdminMenu.id == int(it.get("id"))).first()
+            if not menu:
+                continue
+            if "parent_id" in it and it.get("parent_id") is not None:
+                menu.parent_id = int(it.get("parent_id", 0))
+            if "sort_order" in it and it.get("sort_order") is not None:
+                menu.sort_order = int(it.get("sort_order", 0))
+            count += 1
+        LOG.info("保存菜单排序: 共更新 {} 条".format(count))
+        return {"message": "排序保存成功", "updated": count}
+
+
 # ==================== 管理员用户管理 ====================
 
 def admin_user_list():
