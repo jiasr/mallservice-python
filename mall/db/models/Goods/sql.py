@@ -154,12 +154,16 @@ class GoodsSpuDao:
                     })
                 spu_list.append({
                     "spuId": spu.spu_id,
+                    "categoryId": spu.category_id,
                     "thumb": cls._img_url(imgs[0]) if imgs else "",
                     "title": spu.title,
                     "price": spu.min_sale_price,
                     "tags": [t.get("title", t) if isinstance(t, dict) else t for t in tags],
                     "desc": "",
                     "skuList": sku_list,
+                    "isPutOnSale": spu.is_put_on_sale,
+                    "soldNum": spu.sold_num,
+                    "isSoldOut": spu.is_sold_out or False,
                 })
 
             return {

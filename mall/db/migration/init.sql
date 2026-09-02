@@ -4484,7 +4484,7 @@ INSERT INTO `t_mall_admin_menu` (`id`,`name`,`frontpath`,`icon`,`parent_id`,`sor
 (25,'微信支付','/setting/wechatpay','Money',8,4,'',1),
 (26,'运费模板','/freight/list','List',12,1,'',1),
 (27,'添加模板','/freight/add','Plus',12,2,'freight:add',1),
-(28,'用户协议与隐私','/setting/agreement','Document',8,5,'',1),
+(28,'协议与隐私','/setting/agreement','Document',8,5,'',1),
 (32,'小票机','/setting/printer','Printer',8,6,'',1),
 (30,'进销存','/stock/goods/list','Box',0,10,'',1),
 (31,'库存商品','/stock/goods/list','List',30,1,'',1);
