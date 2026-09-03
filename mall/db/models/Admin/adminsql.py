@@ -228,6 +228,7 @@ class AdminUserDao:
                 # 配送管理子菜单
                 (26, "运费模板", "/freight/list", "List", 12, 1, ""),
                 (27, "添加模板", "/freight/add", "Plus", 12, 2, "freight:add"),
+                (29, "快递账号", "/express/account/list", "Van", 12, 3, ""),
 
                 # 进销存顶级菜单（入库单、库存流水已整合进"库存商品"页内Tab）
                 (30, "进销存", "/stock/goods/list", "Box", 0, 10, ""),

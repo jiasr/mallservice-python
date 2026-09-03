@@ -29,6 +29,7 @@ class Order(BASE, DbBase):
     transaction_id = Column(String(64), default='', comment='微信支付交易号(用于退款)')
     shipping_company = Column(String(100), default='', comment='物流公司')
     shipping_no = Column(String(100), default='', comment='物流单号')
+    waybill_data = Column(Text, default='', comment='电子面单数据(JSON)')
     delivery_type = Column(Integer, default=0, comment='配送方式 0=快递 1=同城配送 2=自提')
     pickup_store_id = Column(Integer, default=0, comment='自提门店ID')
     pickup_store_name = Column(String(100), default='', comment='自提门店名称')

@@ -366,6 +366,19 @@ CREATE TABLE t_mall_freight_region (
 	PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ==================== t_mall_delivery_account ====================
+CREATE TABLE t_mall_delivery_account (
+	id VARCHAR(32) NOT NULL COMMENT '主键 UUID（uuid4().hex，符合规范一.1）',
+	delivery_id VARCHAR(32) NOT NULL COMMENT '快递公司ID（如 YTO, STO）',
+	biz_id VARCHAR(32) NOT NULL COMMENT '快递公司客户编码',
+	account_name VARCHAR(64) DEFAULT '' COMMENT '账号名称(别名)',
+	password VARCHAR(255) DEFAULT '' COMMENT '密码(加密存储，AES后Base64)',
+	status TINYINT DEFAULT 1 COMMENT '状态 1启用 0禁用',
+	create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+	update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='快递公司账号绑定表';
+
 -- ==================== t_mall_config_wechatpay ====================
 CREATE TABLE t_mall_config_wechatpay (
 	id INTEGER NOT NULL AUTO_INCREMENT, 

@@ -89,7 +89,7 @@ class OrderDao:
             'totalAmount': order.total_amount,
             'freightFee': order.freight_amount,
             'deliveryType': order.delivery_type,
-            'logisticsVO': {'logisticsNo': ''},
+            'logisticsVO': {'logisticsNo': order.shipping_no or '', 'logisticsCompany': order.shipping_company or ''},
             'createTime': cls._fmt_dt(order.create_time),
             'paidAt': cls._fmt_dt(order.paid_at),
             'shippedAt': cls._fmt_dt(order.shipped_at),
@@ -187,6 +187,15 @@ class OrderDao:
                 order.shipped_at = datetime.now()
                 order.shipping_company = data.get('shippingCompany', '')
                 order.shipping_no = data.get('shippingNo', '')
+            elif data.get('action') in ('ship_wx', 'ship'):
+                from mall.service.delivery_service import ship_by_wechat, ship
+                account_id = data.get('accountId')
+                if not account_id:
+                    return {'success': False, 'message': '缺少快递账号ID'}
+                # ship_wx 走微信; ship 按账号 provider 自动选择渠道(含中通)
+                if data.get('action') == 'ship_wx':
+                    return ship_by_wechat(order_no, account_id)
+                return ship(order_no, account_id)
             elif data.get('action') == 'complete':
                 order.order_status = 3
                 order.completed_at = datetime.now()
@@ -515,7 +524,7 @@ class OrderDao:
                 'completedAt': cls._fmt_dt(order.completed_at),
                 'canceledAt': cls._fmt_dt(order.canceled_at),
                 'createTime': cls._fmt_dt(order.create_time),
-                'logisticsVO': {'logisticsNo': ''},
+                'logisticsVO': {'logisticsNo': order.shipping_no or '', 'logisticsCompany': order.shipping_company or ''},
                 'buttonVOs': [],
                 'orderItemVOs': [{
                     'id': oi.id,

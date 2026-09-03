@@ -30,6 +30,7 @@ _CORE_TABLES = [
     "t_mall_config_wechatpay",
     "t_mall_freight_template",
     "t_mall_freight_region",
+    "t_mall_delivery_account",
     "regions",
     "t_mall_stock_goods",
     "t_mall_stock_barcode_seq",
@@ -63,6 +64,13 @@ def _ensure_new_tables(engine):
     else:
         LOG.info("t_mall_pick_record 已存在，跳过")
 
+    from mall.db.models.DeliveryAccount.model import DeliveryAccount
+    if "t_mall_delivery_account" not in existing:
+        DeliveryAccount.__table__.create(engine)
+        LOG.info("t_mall_delivery_account 已创建")
+    else:
+        LOG.info("t_mall_delivery_account 已存在，跳过")
+
 
 def _migrate_missing_columns(engine, inspector):
     """幂等补齐新增字段（老库启动时自动 ALTER TABLE）"""
@@ -86,6 +94,7 @@ def _migrate_missing_columns(engine, inspector):
             ("canceled_at", "DATETIME COMMENT '取消时间'"),
             ("deleted", "INTEGER DEFAULT 0 COMMENT '软删除 0正常 1已删除(回收站)'"),
             ("deleted_at", "DATETIME COMMENT '删除时间'"),
+            ("waybill_data", "TEXT COMMENT '电子面单数据(JSON)'"),
         ]:
             if _col not in order_columns:
                 conn.execute(
@@ -94,6 +103,26 @@ def _migrate_missing_columns(engine, inspector):
                 LOG.info("t_mall_order 已新增列 {}".format(_col))
             else:
                 LOG.info("t_mall_order.{} 已存在，跳过".format(_col))
+
+        # t_mall_delivery_account 中通开放平台渠道字段（2026-09-04 新增）
+        da_columns = {c["name"] for c in inspector.get_columns("t_mall_delivery_account")}
+        for _col, _ddl in [
+            ("provider", "VARCHAR(16) NOT NULL DEFAULT 'wechat' COMMENT '渠道 wechat=微信物流助手 zto=中通开放平台'"),
+            ("app_key", "VARCHAR(128) NOT NULL DEFAULT '' COMMENT '中通开放平台 appKey'"),
+            ("app_secret", "VARCHAR(512) NOT NULL DEFAULT '' COMMENT '中通开放平台 appSecret(AES-GCM 加密存储)'"),
+            ("partner_code", "VARCHAR(64) NOT NULL DEFAULT '' COMMENT '中通电子面单账号'"),
+            ("customer_id", "VARCHAR(64) NOT NULL DEFAULT '' COMMENT '中通客户编码(对应 customerId)'"),
+            ("partner_key", "VARCHAR(512) NOT NULL DEFAULT '' COMMENT '中通电子面单密码(AES-GCM 加密存储)'"),
+            ("partner_type", "VARCHAR(16) NOT NULL DEFAULT '1' COMMENT '中通电子面单类型(对应 partnerType)'"),
+            ("env", "VARCHAR(16) NOT NULL DEFAULT 'sandbox' COMMENT '中通环境 sandbox/prod'"),
+        ]:
+            if _col not in da_columns:
+                conn.execute(
+                    "ALTER TABLE t_mall_delivery_account ADD COLUMN {} {}".format(_col, _ddl)
+                )
+                LOG.info("t_mall_delivery_account 已新增列 {}".format(_col))
+            else:
+                LOG.info("t_mall_delivery_account.{} 已存在，跳过".format(_col))
 
 
 def check_schema():
