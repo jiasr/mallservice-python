@@ -4,7 +4,7 @@
 特点(与微信物流助手不同):
 - 每个接口是独立 HTTPS 地址: {gateway}/{method}
 - 签名: x-dataDigest = base64( md5( 请求体JSON字符串 + appSecret ) )
-- Headers: x-appKey(应用Key), x-dataDigest(签名)
+- Headers: x-appKey(应用Key), x-datadigest(签名, 全小写)
 - body 为业务参数 JSON 字符串(不是包在 data 字段里)
 - 授权模式下, 电子面单账号(partnerCode)需提前在控制台绑定到 appKey,
   下单时传 partnerCode 即可, 通常不需要 partnerKey 密码。
@@ -43,13 +43,15 @@ class ZtoClient:
     def _call(self, method, data):
         """统一请求: 返回解析后的 dict(解析失败返回 {raw: 原文})"""
         url = "{}/{}".format(self.gateway, method)
-        body_str = json.dumps(data, ensure_ascii=False)
+        # 与官方签名文档一致: 用无空格分隔符序列化(示例 body 为 {"pageNo1":33,...} 无空格),
+        # 否则网关验签通过但下游下单服务以无空格规范串二次验签会失败 -> S202
+        body_str = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
         headers = {
             "x-appKey": self.app_key,
-            "x-dataDigest": self._sign(body_str),
+            "x-datadigest": self._sign(body_str),
             "Content-Type": "application/json;charset=utf-8",
         }
-        LOG.info("ZTO req method=%s body=%s", method, body_str)
+        LOG.info("ZTO req method=%s headers=%s body=%s", method, headers, body_str)
         resp = requests.post(
             url, data=body_str.encode("utf-8"), headers=headers, timeout=15
         )

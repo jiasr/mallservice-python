@@ -133,37 +133,55 @@ class ZtoHandler(LogisticsHandler):
     def create_waybill(self, order, config):
         """调用中通 zto.open.createOrder 创建运单，返回 waybill_id(运单号) + 原始响应"""
         client = self._build_client(config)
+
+        def _detail_address(full, prov, city, county):
+            """从完整地址中剔除省/市/区, 仅保留详细地址(街道), 符合中通
+            senderAddress/receiverAddress 只填详细地址的规范(官方示例地址字段仅为街道)。"""
+            detail = full or ""
+            for seg in (prov, city, county):
+                if seg:
+                    detail = detail.replace(seg, "", 1)
+            return detail.strip()
+
+        # 中通 zto.open.createOrder 真实请求体(依据官方字段定义): 顶层 partnerType(必填)/
+        # orderType/partnerOrderCode + senderInfo/receiveInfo(嵌套, 省/市/区/地址均必填)
+        # + orderVasList + summaryInfo + orderItems + cabinet。
+        # 关键: orderItems.weight(long, 克)/quantity(integer) 必须是数值, 传字符串会导致中通后端
+        # 解析异常 -> S202; 扁平结构缺少 partnerType -> S208。早前这两个坑都已踩过。
+        # partnerType: 2=非集团客户(网点授权/商家自寄); 1=集团客户(需 customerId)。
+        # 本系统为网点授权模式(无 customerId), 固定走 2; 若误用 1 且缺 customerId 会触发 S202。
+        # 注: accountInfo 按需求当前不发送(官方标注 accountInfo 为"否"; accountId 在
+        # partnerType=2/orderType=1 时虽注明必传, 但实测需对照账号后台开通情况)。
+        partner_type = config.get("partner_type") or "2"
+        if partner_type == "1" and not config.get("customer_id"):
+            partner_type = "2"
         order_data = {
-            "partnerType": config.get("partner_type") or "1",
+            "partnerType": partner_type,
             "orderType": "1",
             "partnerOrderCode": "MALL{}".format(order.get("id")),
-            "accountInfo": {
-                "accountId": config.get("partner_code"),
-                "accountPassword": config.get("partner_key") or "",
-                "type": 1,
-                "customerId": config.get("customer_id") or "",
-            },
             "senderInfo": {
+                "senderId": "",
                 "senderName": config.get("sender_name", ""),
-                "senderPhone": "",
-                "senderMobile": config.get("sender_tel", ""),
+                "senderPhone": str(config.get("sender_phone", "") or ""),
+                "senderMobile": str(config.get("sender_tel", "") or ""),
                 "senderProvince": config.get("sender_province", ""),
                 "senderCity": config.get("sender_city", ""),
                 "senderDistrict": config.get("sender_area", ""),
-                "senderAddress": config.get("sender_address", ""),
+                "senderAddress": _detail_address(config.get("sender_address", ""), config.get("sender_province", ""), config.get("sender_city", ""), config.get("sender_area", "")),
             },
             "receiveInfo": {
                 "receiverName": order.get("consignee"),
-                "receiverPhone": "",
-                "receiverMobile": order.get("tel"),
+                "receiverPhone": str(order.get("receiver_phone", "") or ""),
+                "receiverMobile": str(order.get("tel", "") or ""),
                 "receiverProvince": order.get("province", ""),
                 "receiverCity": order.get("city", ""),
                 "receiverDistrict": order.get("area", ""),
-                "receiverAddress": order.get("address", ""),
+                "receiverAddress": _detail_address(order.get("address", ""), order.get("province", ""), order.get("city", ""), order.get("area", "")),
             },
+            "orderVasList": [],
             "summaryInfo": {
                 "size": "",
-                "quantity": order.get("total_quantity", 1),
+                "quantity": int(order.get("total_quantity", 1) or 1),
                 "price": 0,
                 "freight": 0,
                 "premium": 0,
@@ -177,13 +195,13 @@ class ZtoHandler(LogisticsHandler):
                     "category": "",
                     "material": "",
                     "size": "",
-                    "weight": str(it.get("weight", 1)),
+                    "weight": int(it.get("weight", 1) or 1),
                     "unitprice": 0,
-                    "quantity": str(it.get("quantity", 1)),
+                    "quantity": int(it.get("quantity", 1) or 1),
                     "remark": "",
                 }
                 for it in (order.get("items") or [])
-            ] or [{"name": "商品", "category": "", "material": "", "size": "", "weight": "1", "unitprice": 0, "quantity": "1", "remark": ""}],
+            ] or [{"name": "商品", "category": "", "material": "", "size": "", "weight": 1, "unitprice": 0, "quantity": 1, "remark": ""}],
             "cabinet": {"address": "", "specification": 0, "code": ""},
         }
         resp = client.create_order(order_data)

@@ -155,7 +155,10 @@ def ship_by_wechat(order_no, account_id):
 
 
 def _split_addr(addr):
-    """从完整收货地址粗略拆出省/市/区(中通下单需分开字段)"""
+    """从完整收货地址粗略拆出省/市/区(中通下单需分开字段)
+    兼容带空格(省 市 区 ...)与无空格(省市区连写)两种写法,
+    并去除 city/district 里冗余的省/市前缀(如 '山东省济南市' -> '济南市'),
+    否则中通按区域名匹配失败会报 S202。"""
     prov = city = county = ''
     if not addr:
         return prov, city, county
@@ -171,6 +174,13 @@ def _split_addr(addr):
     m = re.search(r'([^\s,，]+?(?:区|县|旗))', addr)
     if m:
         county = m.group(1)
+    # 去掉 city/district 中冗余的省/市前缀, 避免中通按区域名匹配失败(S202)
+    if prov and city.startswith(prov):
+        city = city[len(prov):]
+    if prov and county.startswith(prov):
+        county = county[len(prov):]
+    if city and county.startswith(city):
+        county = county[len(city):]
     return prov, city, county
 
 
@@ -222,9 +232,14 @@ def ship_zto(order_no, account_id):
         'partner_type': acc.get('partner_type', '1'),
         'sender_name': settings.get('site_name', ''),
         'sender_tel': settings.get('service_phone', ''),
-        'sender_province': '', 'sender_city': '', 'sender_area': '',
-        'sender_address': settings.get('site_name', ''),
+        # 发货地址优先取系统设置 sender_address, 未配置时回退到商城名称
+        'sender_address': settings.get('sender_address') or settings.get('site_name', ''),
     }
+    # 发件人省/市/区从完整发货地址中解析(与收件人一致的处理方式), 避免中通因发件地址为空报 S202
+    _s_prov, _s_city, _s_county = _split_addr(config['sender_address'])
+    config['sender_province'] = _s_prov
+    config['sender_city'] = _s_city
+    config['sender_area'] = _s_county
     handler = LogisticsAdapter.get_handler('zto')
     result = handler.create_waybill(order_dict, config)
     waybill_id = result.get('waybill_id')
