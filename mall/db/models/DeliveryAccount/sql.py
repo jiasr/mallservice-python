@@ -126,6 +126,8 @@ class DeliveryAccountDao:
                 env=data.get("env", "sandbox") if is_zto else "",
                 # 散单(现付)账号: 微信侧免绑定, 下单用 cash_biz_id
                 is_cash=1 if data.get("isCash") else 0,
+                # 微信沙盒下单凭证(delivery_id=TEST 时使用的测试 openid)
+                sandbox_openid=data.get("sandboxOpenid", ""),
                 status=1,
             )
             session.add(acc)
@@ -168,6 +170,8 @@ class DeliveryAccountDao:
                 acc.env = data["env"]
             if "isCash" in data:
                 acc.is_cash = 1 if data["isCash"] else 0
+            if "sandboxOpenid" in data:
+                acc.sandbox_openid = data["sandboxOpenid"]
             return {"id": acc.id}
 
     @classmethod

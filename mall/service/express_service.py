@@ -112,6 +112,8 @@ class WechatExpressHandler(LogisticsHandler):
             },
             "shop": {
                 "wxa_path": "/pages/order/detail?id={}".format(order.get("id")),
+                # img_url 必填, 缺失会报 9300535 invalid shop args
+                "img_url": order.get("item_thumb") or "",
                 "goods_name": "、".join(d["name"] for d in cargo_detail)[:128],
                 "goods_count": int(order.get("total_quantity") or 1),
             },
@@ -146,11 +148,11 @@ class WechatExpressHandler(LogisticsHandler):
         ]
 
     def cancel_waybill(self, waybill_no, config):
+        """取消运单，返回微信原始响应（含 result_code / result_msg 真实原因）"""
         client = WechatExpressClient()
-        result = client.cancel_order(
+        return client.cancel_order(
             config.get("order_id"), waybill_no, config.get("delivery_id")
         )
-        return result.get("result_code") == "0"
 
 
 class ZtoHandler(LogisticsHandler):
@@ -228,13 +230,13 @@ class ZtoHandler(LogisticsHandler):
                     "category": "",
                     "material": "",
                     "size": "",
-                    "weight": int(it.get("weight", 1) or 1),
+                    "weight": int(it.get("weight") or 1000),  # 单位: 克, 默认 1kg
                     "unitprice": 0,
-                    "quantity": int(it.get("quantity", 1) or 1),
+                    "quantity": int(it.get("quantity") or 1),
                     "remark": "",
                 }
                 for it in (order.get("items") or [])
-            ] or [{"name": "商品", "category": "", "material": "", "size": "", "weight": 1, "unitprice": 0, "quantity": 1, "remark": ""}],
+            ] or [{"name": "商品", "category": "", "material": "", "size": "", "weight": 1000, "unitprice": 0, "quantity": 1, "remark": ""}],
             "cabinet": {"address": "", "specification": 0, "code": ""},
         }
         resp = client.create_order(order_data)

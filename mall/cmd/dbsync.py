@@ -115,6 +115,7 @@ def _migrate_missing_columns(engine, inspector):
             ("partner_key", "VARCHAR(512) NOT NULL DEFAULT '' COMMENT '中通电子面单密码(AES-GCM 加密存储)'"),
             ("partner_type", "VARCHAR(16) NOT NULL DEFAULT '1' COMMENT '中通电子面单类型(对应 partnerType)'"),
             ("env", "VARCHAR(16) NOT NULL DEFAULT 'sandbox' COMMENT '中通环境 sandbox/prod'"),
+            ("sandbox_openid", "VARCHAR(64) NOT NULL DEFAULT '' COMMENT '微信物流沙盒测试 openid(仅 delivery_id=TEST 时使用)'"),
         ]:
             if _col not in da_columns:
                 conn.execute(
@@ -123,6 +124,69 @@ def _migrate_missing_columns(engine, inspector):
                 LOG.info("t_mall_delivery_account 已新增列 {}".format(_col))
             else:
                 LOG.info("t_mall_delivery_account.{} 已存在，跳过".format(_col))
+
+
+# 运单管理菜单（启动时幂等初始化，避免每次升级都要手动补菜单）
+_WAYBILL_MENU_FRONTPATH = "/express/waybill/list"
+
+
+def _ensure_waybill_menu(engine, inspector):
+    """幂等补齐「运单管理」菜单并授权给所有角色
+
+    作为「订单管理」的子菜单；若已存在但挂错父级会自动纠正到订单管理下。
+    找不到订单管理菜单时才降级为顶级菜单。
+    """
+    tables = set(inspector.get_table_names())
+    if "t_mall_admin_menu" not in tables:
+        return
+    with engine.connect() as conn:
+        # 父菜单 = 订单管理
+        order_menu = conn.execute(
+            "SELECT id FROM t_mall_admin_menu WHERE frontpath = '/order/list' LIMIT 1"
+        ).fetchone()
+        parent_id = int(order_menu[0]) if order_menu else 0
+
+        row = conn.execute(
+            "SELECT id, parent_id FROM t_mall_admin_menu "
+            "WHERE frontpath = '{}' LIMIT 1".format(_WAYBILL_MENU_FRONTPATH)
+        ).fetchone()
+        if row:
+            menu_id = int(row[0])
+            current_parent = int(row[1]) if row[1] is not None else 0
+            if parent_id and current_parent != parent_id:
+                conn.execute(
+                    "UPDATE t_mall_admin_menu SET parent_id = {} WHERE id = {}".format(
+                        parent_id, menu_id)
+                )
+                LOG.info("菜单「运单管理」已移动到「订单管理」下(id=%s)", menu_id)
+            else:
+                LOG.info("菜单「运单管理」已存在（id=%s），跳过新增", menu_id)
+        else:
+            conn.execute(
+                "INSERT INTO t_mall_admin_menu "
+                "(name, frontpath, icon, parent_id, sort_order, permission, visible) "
+                "VALUES ('运单管理', '{}', 'Van', {}, 100, '', 1)".format(
+                    _WAYBILL_MENU_FRONTPATH, parent_id)
+            )
+            menu_id = int(conn.execute("SELECT LAST_INSERT_ID()").fetchone()[0])
+            LOG.info("已新增菜单「运单管理」(id=%s, parent_id=%s)", menu_id, parent_id)
+
+        if "t_mall_admin_role_menu" in tables:
+            roles = conn.execute("SELECT id FROM t_mall_admin_role").fetchall()
+            for (role_id,) in roles:
+                role_id = int(role_id)
+                exists = conn.execute(
+                    "SELECT id FROM t_mall_admin_role_menu "
+                    "WHERE role_id = {} AND menu_id = {} LIMIT 1".format(role_id, menu_id)
+                ).fetchone()
+                if exists:
+                    continue
+                conn.execute(
+                    "INSERT INTO t_mall_admin_role_menu (role_id, menu_id) "
+                    "VALUES ({}, {})".format(role_id, menu_id)
+                )
+                LOG.info("菜单「运单管理」已授权给角色 %s", role_id)
+        conn.commit()
 
 
 def check_schema():
@@ -148,6 +212,9 @@ def check_schema():
 
     # 老库增量迁移：补齐新增列（幂等）
     _migrate_missing_columns(engine, inspector)
+
+    # 新增菜单：运单管理（幂等，自动授权给所有角色）
+    _ensure_waybill_menu(engine, inspector)
 
     LOG.info("数据库表结构校验通过（{} 张核心表均存在）".format(len(_CORE_TABLES)))
     return True

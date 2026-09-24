@@ -33,5 +33,6 @@ class DeliveryAccount(BASE, DbBase):
     # 散单(现付): 微信侧无需绑定, 下单直接用微信返回的 cash_biz_id, 1=散单 0=月结
     is_cash = Column(Integer, default=0, comment='散单(现付)账号 1=是 0=否(月结,需微信绑定)')
     env = Column(String(16), default='sandbox', comment='中通环境 sandbox/prod')
+    sandbox_openid = Column(String(64), default='', comment='微信物流沙盒测试 openid(仅 delivery_id=TEST 时使用)')
     create_time = Column(DateTime, default=datetime.now)
     update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)

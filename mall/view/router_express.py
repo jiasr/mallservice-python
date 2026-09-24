@@ -89,3 +89,54 @@ class ExpressDeliveryList(Resource):
     @deco_catch_view_exception("支持的快递公司列表")
     def get(self):
         return delivery_service.list_deliveries()
+
+
+@ns_express.route('/waybill/list', methods=['GET'])
+class ExpressWaybillList(Resource):
+    @admin_required
+    @deco_catch_view_exception("运单管理列表")
+    def get(self):
+        params = {
+            'pageNum': request.args.get('pageNum', 1),
+            'pageSize': request.args.get('pageSize', 20),
+            'orderNo': request.args.get('orderNo', ''),
+            'waybillNo': request.args.get('waybillNo', ''),
+            'company': request.args.get('company', ''),
+            'withWxStatus': request.args.get('withWxStatus', ''),
+        }
+        return delivery_service.list_waybills(params)
+
+
+@ns_express.route('/waybill/print', methods=['GET'])
+class ExpressWaybillPrint(Resource):
+    @admin_required
+    @deco_catch_view_exception("获取电子面单")
+    def get(self):
+        order_no = request.args.get('orderNo', '')
+        if not order_no:
+            return {'success': False, 'message': '缺少订单号'}
+        return delivery_service.get_waybill_print(order_no)
+
+
+@ns_express.route('/waybill/test-update', methods=['POST'])
+class ExpressWaybillTestUpdate(Resource):
+    @admin_required
+    @deco_catch_view_exception("模拟更新运单状态")
+    def post(self):
+        data = json.loads(request.data or '{}')
+        order_no = data.get('orderNo', '')
+        if not order_no:
+            return {'success': False, 'message': '缺少订单号'}
+        return delivery_service.test_update_waybill(order_no, data.get('actionType'))
+
+
+@ns_express.route('/waybill/cancel', methods=['POST'])
+class ExpressWaybillCancel(Resource):
+    @admin_required
+    @deco_catch_view_exception("取消运单")
+    def post(self):
+        data = json.loads(request.data or '{}')
+        order_no = data.get('orderNo', '')
+        if not order_no:
+            return {'success': False, 'message': '缺少订单号'}
+        return delivery_service.cancel_waybill(order_no, bool(data.get('force')))

@@ -116,6 +116,7 @@ class UserDao:
                 "phone": u.phone or '',
                 "status": u.status if u.status is not None else 1,
                 "createTime": u.create_time.strftime('%Y-%m-%d %H:%M:%S') if u.create_time else '',
+                "openid": u.wx_openid or '',
             })
         return {"data": {"total": count, "list": user_list}}
 
@@ -134,6 +135,7 @@ class UserDao:
                 "phone": u.phone or '',
                 "status": u.status if u.status is not None else 1,
                 "createTime": u.create_time.strftime('%Y-%m-%d %H:%M:%S') if u.create_time else '',
+                "openid": u.wx_openid or '',
             }}
 
     @classmethod

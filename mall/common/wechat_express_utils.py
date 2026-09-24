@@ -197,6 +197,10 @@ class WechatExpressClient:
         """批量获取运单信息"""
         return self._call("{}/order/batchget".format(WX_API), {"order_list": order_list})
 
+    def test_update_order(self, data):
+        """模拟更新订单状态（仅沙盒：delivery_id=TEST / biz_id=test_biz_id）"""
+        return self._call("{}/test_update_order".format(WX_API), data)
+
     def get_path(self, delivery_id, waybill_id):
         """查询运单轨迹"""
         return self._call("{}/path/get".format(WX_API), {
