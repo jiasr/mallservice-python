@@ -55,6 +55,8 @@ class ZtoClient:
         resp = requests.post(
             url, data=body_str.encode("utf-8"), headers=headers, timeout=15
         )
+        # 中通网关未声明 charset, requests 会按 ISO-8859-1 解码导致中文乱码, 强制 UTF-8
+        resp.encoding = "utf-8"
         text = resp.text
         LOG.info("ZTO resp status=%s text=%s", resp.status_code, text)
         try:

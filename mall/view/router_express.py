@@ -81,3 +81,11 @@ class ExpressAccountDelete(Resource):
     @deco_catch_view_exception("删除快递账号")
     def post(self, account_id):
         return delivery_service.delete_account(account_id)
+
+
+@ns_express.route('/delivery/list', methods=['GET'])
+class ExpressDeliveryList(Resource):
+    @admin_required
+    @deco_catch_view_exception("支持的快递公司列表")
+    def get(self):
+        return delivery_service.list_deliveries()

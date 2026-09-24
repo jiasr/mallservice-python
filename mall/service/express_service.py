@@ -8,6 +8,7 @@
 注意：本文件属于 service 层，禁止加 deco_catch_view_exception（规范一.5），异常向上抛由 router 层捕获。
 """
 import logging
+import time
 
 from mall.common.wechat_express_utils import WechatExpressClient
 from mall.common.zto_express_utils import ZtoClient, SANDBOX_GATEWAY, PROD_GATEWAY
@@ -60,43 +61,75 @@ class WechatExpressHandler(LogisticsHandler):
         return "wechat"
 
     def create_waybill(self, order, config):
-        """调用微信 add_order 创建运单，返回 waybill_id + waybill_data"""
+        """调用微信 add_order 创建运单，返回 waybill_id + waybill_data
+
+        官方必填项: order_id / openid(add_source=0) / delivery_id / biz_id /
+        add_source / sender / receiver / cargo(含 detail_list) / shop / insured /
+        service(含 service_name)
+        """
         client = WechatExpressClient()
         from mall.common.constant import wx_app_id
+
+        # add_source: 0=小程序订单(必传 openid); 2=App/H5 订单(免 openid, 但 wx_appid 必填)
+        openid = order.get("openid") or ""
+        add_source = 0 if openid else 2
+
+        # cargo.detail_list 为必填(商品名 + 数量), 缺失会触发 930561 参数错误
+        items = order.get("items") or []
+        cargo_detail = [
+            {"name": (it.get("name") or "商品")[:128], "count": int(it.get("quantity") or 1)}
+            for it in items
+        ] or [{"name": "商品", "count": int(order.get("total_quantity") or 1)}]
+
         order_data = {
-            "add_source": 0,
-            "wx_appid": wx_app_id,
+            "add_source": add_source,
             "order_id": str(order.get("id")),
-            "sender": {
-                "name": config.get("sender_name"),
-                "tel": config.get("sender_tel"),
-                "province": config.get("sender_province"),
-                "city": config.get("sender_city"),
-                "area": config.get("sender_area"),
-                "address": config.get("sender_address"),
-            },
-            "receiver": {
-                "name": order.get("consignee"),
-                "tel": order.get("tel"),
-                "province": order.get("province"),
-                "city": order.get("city"),
-                "area": order.get("area"),
-                "address": order.get("address"),
-            },
-            "shop": {"wxa_path": "/pages/order/detail?id={}".format(order.get("id"))},
-            "cargo": {
-                "count": order.get("total_quantity", 1),
-                "weight": order.get("weight", 500),
-                "space_x": config.get("space_x", 30),
-                "space_y": config.get("space_y", 30),
-                "space_z": config.get("space_z", 30),
-            },
-            "insured": {"use_insured": 0},
-            "service": {"service_type": 0},
             "delivery_id": config.get("delivery_id"),
             "biz_id": config.get("biz_id"),
-            "custom_remark": order.get("remark", ""),
+            "sender": {
+                "name": config.get("sender_name", ""),
+                "mobile": config.get("sender_tel", ""),
+                "province": config.get("sender_province", ""),
+                "city": config.get("sender_city", ""),
+                "area": config.get("sender_area", ""),
+                "address": config.get("sender_address", ""),
+            },
+            "receiver": {
+                "name": order.get("consignee", ""),
+                "mobile": order.get("tel", ""),
+                "province": order.get("province", ""),
+                "city": order.get("city", ""),
+                "area": order.get("area", ""),
+                "address": order.get("address", ""),
+            },
+            "cargo": {
+                "count": int(order.get("total_quantity") or 1),
+                "weight": float(config.get("weight") or 1),
+                "space_x": float(config.get("space_x") or 30),
+                "space_y": float(config.get("space_y") or 30),
+                "space_z": float(config.get("space_z") or 30),
+                "detail_list": cargo_detail,
+            },
+            "shop": {
+                "wxa_path": "/pages/order/detail?id={}".format(order.get("id")),
+                "goods_name": "、".join(d["name"] for d in cargo_detail)[:128],
+                "goods_count": int(order.get("total_quantity") or 1),
+            },
+            "insured": {"use_insured": 0},
+            "service": {
+                "service_type": int(config.get("service_type") or 0),
+                "service_name": config.get("service_name") or "标准快递",
+            },
+            "custom_remark": order.get("remark", "") or "",
         }
+        # openid 与 wx_appid 按 add_source 二选一, 多余传字段会被判参数非法
+        if add_source == 0:
+            order_data["openid"] = openid
+        else:
+            order_data["wx_appid"] = wx_app_id
+        # 散单(现付)必须传 expect_time: 官方明确"下顺丰散单必传此字段, 否则不会有收件员上门揽件"
+        if config.get("is_cash"):
+            order_data["expect_time"] = int(config.get("expect_time") or 0) or int(time.time()) + 7200
         return client.add_order(order_data)
 
     def get_track(self, company, waybill_no):

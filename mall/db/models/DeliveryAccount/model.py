@@ -30,6 +30,8 @@ class DeliveryAccount(BASE, DbBase):
     customer_id = Column(String(64), default='', comment='中通客户编码(对应 accountInfo.customerId)')
     partner_key = Column(String(512), default='', comment='中通电子面单密码(对应 accountInfo.accountPassword, AES-GCM 加密存储)')
     partner_type = Column(String(16), default='1', comment='中通电子面单类型(partnerType, 默认 1)')
+    # 散单(现付): 微信侧无需绑定, 下单直接用微信返回的 cash_biz_id, 1=散单 0=月结
+    is_cash = Column(Integer, default=0, comment='散单(现付)账号 1=是 0=否(月结,需微信绑定)')
     env = Column(String(16), default='sandbox', comment='中通环境 sandbox/prod')
     create_time = Column(DateTime, default=datetime.now)
     update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)

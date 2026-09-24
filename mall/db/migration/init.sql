@@ -369,11 +369,20 @@ CREATE TABLE t_mall_freight_region (
 -- ==================== t_mall_delivery_account ====================
 CREATE TABLE t_mall_delivery_account (
 	id VARCHAR(32) NOT NULL COMMENT '主键 UUID（uuid4().hex，符合规范一.1）',
-	delivery_id VARCHAR(32) NOT NULL COMMENT '快递公司ID（如 YTO, STO）',
-	biz_id VARCHAR(32) NOT NULL COMMENT '快递公司客户编码',
+	delivery_id VARCHAR(32) NOT NULL DEFAULT '' COMMENT '快递公司ID（微信物流助手，如 YTO, STO）',
+	biz_id VARCHAR(32) NOT NULL DEFAULT '' COMMENT '快递公司客户编码（微信）',
 	account_name VARCHAR(64) DEFAULT '' COMMENT '账号名称(别名)',
-	password VARCHAR(255) DEFAULT '' COMMENT '密码(加密存储，AES后Base64)',
+	password VARCHAR(255) DEFAULT '' COMMENT '密码(微信,加密存储，AES后Base64)',
 	status TINYINT DEFAULT 1 COMMENT '状态 1启用 0禁用',
+	provider VARCHAR(16) NOT NULL DEFAULT 'wechat' COMMENT '渠道 wechat=微信物流助手 zto=中通开放平台',
+	app_key VARCHAR(128) DEFAULT '' COMMENT '中通开放平台 appKey',
+	app_secret VARCHAR(512) DEFAULT '' COMMENT '中通开放平台 appSecret(AES-GCM 加密存储)',
+	partner_code VARCHAR(64) DEFAULT '' COMMENT '中通电子面单账号(如 D36_360320735712101)',
+	customer_id VARCHAR(64) DEFAULT '' COMMENT '中通客户编码(对应 accountInfo.customerId)',
+	partner_key VARCHAR(512) DEFAULT '' COMMENT '中通电子面单密码(对应 accountInfo.accountPassword, AES-GCM 加密存储)',
+	partner_type VARCHAR(16) DEFAULT '1' COMMENT '中通电子面单类型(partnerType, 默认 1)',
+	env VARCHAR(16) DEFAULT 'sandbox' COMMENT '中通环境 sandbox/prod',
+	is_cash TINYINT NOT NULL DEFAULT 0 COMMENT '散单(现付)账号 1=是 0=否(月结,需微信绑定)',
 	create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
 	update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	PRIMARY KEY (id)

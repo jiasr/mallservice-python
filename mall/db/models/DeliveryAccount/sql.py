@@ -124,6 +124,8 @@ class DeliveryAccountDao:
                 partner_key=_encrypt_password(data.get("partnerKey", "")) if is_zto else "",
                 partner_type=data.get("partnerType", "1") if is_zto else "",
                 env=data.get("env", "sandbox") if is_zto else "",
+                # 散单(现付)账号: 微信侧免绑定, 下单用 cash_biz_id
+                is_cash=1 if data.get("isCash") else 0,
                 status=1,
             )
             session.add(acc)
@@ -164,6 +166,8 @@ class DeliveryAccountDao:
                 acc.partner_type = data["partnerType"]
             if "env" in data:
                 acc.env = data["env"]
+            if "isCash" in data:
+                acc.is_cash = 1 if data["isCash"] else 0
             return {"id": acc.id}
 
     @classmethod

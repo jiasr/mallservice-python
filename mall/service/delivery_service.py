@@ -15,8 +15,9 @@ import re
 LOG = logging.getLogger(__name__)
 from mall.db.engines.mysql import get_session
 from mall.db.models.Order.model import Order, OrderItem
+from mall.db.models.User.model import User
 from mall.db.models.DeliveryAccount.sql import DeliveryAccountDao, _decrypt_password
-from mall.common.wechat_express_utils import WechatExpressClient
+from mall.common.wechat_express_utils import WechatExpressClient, WechatExpressError
 from mall.service.express_service import LogisticsAdapter
 from mall.common.common import Fail
 
@@ -55,23 +56,51 @@ def bind_account(data):
 
     - wechat: 先调微信绑定，成功后再加密入库
     - zto:    直接入库（中通开放平台授权模式下不需要微信绑定）
+    - 散单(isCash=1): 微信侧无需且【不能】绑定——散单未签约月结账号, 调 bindAccount 会报
+      9300531 invalid biz_id or password。散单直接用微信下发的现付编码 cash_biz_id 下单,
+      因此跳过微信绑定仅入库。
     """
     provider = data.get("provider", "wechat")
     if provider == "zto":
         return DeliveryAccountDao.create(data)
     client = WechatExpressClient()
+    delivery_id = (data.get('deliveryId') or '').strip()
+    biz_id = (data.get('bizId') or '').strip()
+    is_cash = str(data.get('isCash', 0)) in ('1', 'true', 'True')
+    if not delivery_id:
+        raise Fail("INVALID_PARAM", {}, "微信渠道需填写快递公司ID")
+    if is_cash:
+        # 客户编码留空时自动取微信「支持的快递公司列表」里的现付编码, 不用查文档手填
+        if not biz_id:
+            biz_id = client.find_cash_biz_id(delivery_id)
+        if not biz_id:
+            raise Fail(
+                "WX_CASH_NOT_SUPPORTED", {},
+                "{} 不支持散单(现付)，请改选月结账号，或手动填写该公司的现付 biz_id".format(delivery_id),
+            )
+        data['deliveryId'] = delivery_id
+        data['bizId'] = biz_id
+        data['isCash'] = 1
+        return DeliveryAccountDao.create(data)
+    if not biz_id:
+        raise Fail("INVALID_PARAM", {}, "微信渠道需填写客户编码(biz_id)")
     try:
         client.bind_account(
-            delivery_id=data.get('deliveryId', ''),
-            biz_id=data.get('bizId', ''),
-            password=data.get('password', ''),
-            remark=data.get('accountName', ''),
-            account_type=int(data.get('accountType', 1) or 1),
+            delivery_id=delivery_id,
+            biz_id=biz_id,
+            password=(data.get('password') or '').strip(),
+            remark_content=data.get('accountName', ''),
+            action="bind",
         )
     except Fail:
         raise
+    except WechatExpressError as e:
+        # 异常已含「错误码 + 英文原文 + 中文说明」，直接透传，避免前缀重复
+        raise Fail("WX_EXPRESS_BIND_FAILED", {}, e.message)
     except Exception as e:
         raise Fail("WX_EXPRESS_BIND_FAILED", {}, "微信物流绑定失败：" + str(e))
+    data['deliveryId'] = delivery_id
+    data['bizId'] = biz_id
     return DeliveryAccountDao.create(data)
 
 
@@ -80,6 +109,23 @@ def sync_accounts():
     client = WechatExpressClient()
     accounts = client.get_all_accounts()
     return DeliveryAccountDao.upsert_from_wechat(accounts)
+
+
+def list_deliveries():
+    """获取微信物流助手支持的快递公司列表(用于发货/绑定账号时下拉选择)
+
+    返回微信原结构列表, 每项含 delivery_id / delivery_name / can_use_cash /
+    can_get_quota / service_type[{service_type, service_name}] / cash_biz_id
+    """
+    client = WechatExpressClient()
+    try:
+        return client.get_all_delivery()
+    except Fail:
+        raise
+    except WechatExpressError as e:
+        raise Fail("WX_EXPRESS_DELIVERY_LIST_FAILED", {}, e.message)
+    except Exception as e:
+        raise Fail("WX_EXPRESS_DELIVERY_LIST_FAILED", {}, "获取快递公司列表失败：" + str(e))
 
 
 def ship(order_no, account_id):
@@ -117,25 +163,45 @@ def ship_by_wechat(order_no, account_id):
         total_qty = sum((it.quantity or 0) for it in items)
 
     # 2. 调用微信生成运单
+    # openid: 微信 addOrder 在 add_source=0(小程序订单) 时必填, 取下单用户的 wx_openid
+    openid = ''
+    if order.user_id:
+        user = session.query(User).filter(User.id == order.user_id).first()
+        openid = (user.wx_openid if user else '') or ''
+    # 收/发件人省市区需分字段传, 全为空会导致快递侧区域匹配失败
+    r_prov, r_city, r_area = _split_addr(order.consignee_address)
+    sender_address = settings.get('sender_address') or settings.get('site_name', '')
+    s_prov, s_city, s_area = _split_addr(sender_address)
     order_dict = {
         'id': order.id,
         'consignee': order.consignee_name,
         'tel': order.consignee_mobile,
-        'province': '', 'city': '', 'area': '',
+        'province': r_prov, 'city': r_city, 'area': r_area,
         'address': order.consignee_address,
         'remark': order.remark,
         'total_quantity': total_qty,
+        'openid': openid,
+        'items': [{'name': it.title, 'quantity': it.quantity} for it in items],
     }
     config = {
         'delivery_id': acc['delivery_id'],
         'biz_id': acc['biz_id'],
+        # 散单(现付)账号: 下单需额外传 expect_time, 否则顺丰不会有收件员上门
+        'is_cash': acc.get('is_cash') == 1,
         'sender_name': settings.get('site_name', ''),
         'sender_tel': settings.get('service_phone', ''),
-        'sender_province': '', 'sender_city': '', 'sender_area': '',
-        'sender_address': settings.get('site_name', ''),
+        'sender_province': s_prov, 'sender_city': s_city, 'sender_area': s_area,
+        'sender_address': sender_address,
     }
     handler = LogisticsAdapter.get_handler('wechat')
-    result = handler.create_waybill(order_dict, config)
+    try:
+        result = handler.create_waybill(order_dict, config)
+    except Fail:
+        raise
+    except WechatExpressError as e:
+        # 必须转成 Fail：否则被 router 兜成 result_error，前端只看到"请求失败"，
+        # 看不到微信错误码与快递侧返回码（9300501 的真实原因就在 delivery_resultmsg 里）
+        raise Fail('WX_CREATE_ORDER_FAILED', {}, e.message)
     waybill_id = result.get('waybill_id')
 
     # 微信下单失败：禁止改写订单状态
