@@ -7,6 +7,7 @@
 文档参考：《微信物流配送接入设计文档》3.2 / 3.3 / 4.2
 注意：本文件属于 service 层，禁止加 deco_catch_view_exception（规范一.5），异常向上抛由 router 层捕获。
 """
+import datetime
 import logging
 import time
 
@@ -15,6 +16,21 @@ from mall.common.zto_express_utils import ZtoClient, SANDBOX_GATEWAY, PROD_GATEW
 from mall.db.models.DeliveryAccount.sql import DeliveryAccountDao, _decrypt_password
 
 LOG = logging.getLogger(__name__)
+
+
+def _fmt_ts(ts):
+    """轨迹时间统一成可读格式：支持秒/毫秒时间戳，已是字符串的直接返回"""
+    if ts in (None, '', 0):
+        return ''
+    if isinstance(ts, str) and not ts.isdigit():
+        return ts
+    try:
+        val = int(ts)
+        if val > 1000000000000:  # 毫秒级时间戳
+            val //= 1000
+        return datetime.datetime.fromtimestamp(val).strftime('%Y-%m-%d %H:%M:%S')
+    except Exception:
+        return str(ts)
 
 
 class LogisticsHandler:
@@ -140,7 +156,7 @@ class WechatExpressHandler(LogisticsHandler):
         result = client.get_path(company, waybill_no)
         return [
             {
-                "time": item.get("action_time"),
+                "time": _fmt_ts(item.get("action_time")),
                 "status": item.get("action_msg"),
                 "location": item.get("action_location", ""),
             }
@@ -279,7 +295,7 @@ class ZtoHandler(LogisticsHandler):
             items = raw.get("waybillTrack") or raw.get("list") or raw.get("traces") or []
             for it in (items or []):
                 track_list.append({
-                    "time": it.get("time") or it.get("action_time") or it.get("scanTime") or "",
+                    "time": _fmt_ts(it.get("time") or it.get("action_time") or it.get("scanTime") or ""),
                     "status": it.get("status") or it.get("action") or it.get("remark") or "",
                     "location": it.get("location") or it.get("city") or "",
                 })

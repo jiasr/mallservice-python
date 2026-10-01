@@ -139,7 +139,8 @@ def _ensure_waybill_menu(engine, inspector):
     tables = set(inspector.get_table_names())
     if "t_mall_admin_menu" not in tables:
         return
-    with engine.connect() as conn:
+    # 用 begin() 显式开启事务，退出时自动提交（connect() 的 Connection 无 commit()）
+    with engine.begin() as conn:
         # 父菜单 = 订单管理
         order_menu = conn.execute(
             "SELECT id FROM t_mall_admin_menu WHERE frontpath = '/order/list' LIMIT 1"
@@ -186,7 +187,6 @@ def _ensure_waybill_menu(engine, inspector):
                     "VALUES ({}, {})".format(role_id, menu_id)
                 )
                 LOG.info("菜单「运单管理」已授权给角色 %s", role_id)
-        conn.commit()
 
 
 def check_schema():
