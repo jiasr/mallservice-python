@@ -72,6 +72,19 @@ class OrderDetail(Resource):
         return order_service.detail(user_id, int(order_id))
 
 
+@ns_order.route('/track', methods=['GET'])
+class OrderTrack(Resource):
+    @deco_catch_view_exception("订单物流轨迹")
+    def get(self):
+        user_id = _get_user_id()
+        if not user_id:
+            return {"success": False, "message": "请先登录"}
+        order_no = request.args.get('orderNo', '')
+        if not order_no:
+            return {"success": False, "message": "缺少订单号"}
+        return order_service.query_track(user_id, order_no)
+
+
 @ns_order.route('/pay', methods=['POST'])
 class OrderPay(Resource):
     """获取微信支付参数"""

@@ -157,6 +157,48 @@ def admin_stats():
     return OrderDao.admin_stats()
 
 
+def query_track(user_id, order_no):
+    """用户端查询订单物流轨迹（实时向物流渠道查询，非快照）
+
+    只允许用户查自己的订单；支持传订单号(order_id)或订单主键(id)。
+    """
+    session = get_session()
+    with session.begin():
+        q = session.query(Order).filter(Order.user_id == user_id)
+        order = q.filter(Order.order_id == order_no).first()
+        if not order and str(order_no).isdigit():
+            order = q.filter(Order.id == int(order_no)).first()
+        if not order:
+            raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
+        company = order.shipping_company or ''
+        waybill_no = order.shipping_no or ''
+        consignee = order.consignee_name or ''
+        order_status = order.order_status
+
+    if not waybill_no:
+        return {
+            'success': False, 'message': '该订单暂无物流单号',
+            'company': company, 'waybillNo': '', 'list': [],
+        }
+
+    from mall.service.delivery_service import query_track as _query_track
+    # 中通渠道在 query_track 内部按 'zto' 判断
+    delivery_id = 'zto' if company == '中通快递' else company
+    try:
+        track = _query_track(delivery_id, waybill_no)
+    except Exception as e:
+        LOG.error("查询物流轨迹失败: {}".format(e))
+        return {
+            'success': False, 'message': '物流轨迹查询失败，请稍后重试',
+            'company': company, 'waybillNo': waybill_no, 'list': [],
+        }
+    items = track if isinstance(track, list) else ((track or {}).get('list') or [])
+    return {
+        'success': True, 'company': company, 'waybillNo': waybill_no,
+        'consignee': consignee, 'orderStatus': order_status, 'list': items or [],
+    }
+
+
 def admin_process(order_no, data):
     return OrderDao.admin_process(order_no, data)
 
