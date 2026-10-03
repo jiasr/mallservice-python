@@ -140,3 +140,14 @@ class ExpressWaybillCancel(Resource):
         if not order_no:
             return {'success': False, 'message': '缺少订单号'}
         return delivery_service.cancel_waybill(order_no, bool(data.get('force')))
+
+
+@ns_express.route('/errand/detail', methods=['GET'])
+class ExpressErrandDetail(Resource):
+    @admin_required
+    @deco_catch_view_exception("腾讯跑腿订单详情")
+    def get(self):
+        order_no = request.args.get('orderNo', '')
+        if not order_no:
+            return {'success': False, 'message': '缺少订单号'}
+        return delivery_service.get_errand_detail(order_no)

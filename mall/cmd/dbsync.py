@@ -104,18 +104,21 @@ def _migrate_missing_columns(engine, inspector):
             else:
                 LOG.info("t_mall_order.{} 已存在，跳过".format(_col))
 
-        # t_mall_delivery_account 中通开放平台渠道字段（2026-09-04 新增）
+        # t_mall_delivery_account 渠道字段（中通 + 腾讯跑腿）
         da_columns = {c["name"] for c in inspector.get_columns("t_mall_delivery_account")}
         for _col, _ddl in [
-            ("provider", "VARCHAR(16) NOT NULL DEFAULT 'wechat' COMMENT '渠道 wechat=微信物流助手 zto=中通开放平台'"),
-            ("app_key", "VARCHAR(128) NOT NULL DEFAULT '' COMMENT '中通开放平台 appKey'"),
-            ("app_secret", "VARCHAR(512) NOT NULL DEFAULT '' COMMENT '中通开放平台 appSecret(AES-GCM 加密存储)'"),
+            ("provider", "VARCHAR(16) NOT NULL DEFAULT 'wechat' COMMENT '渠道 wechat=微信物流助手 zto=中通开放平台 tencent=腾讯跑腿同城配送'"),
+            ("app_key", "VARCHAR(128) NOT NULL DEFAULT '' COMMENT '中通 appKey / 腾讯跑腿 api_key'"),
+            ("app_secret", "VARCHAR(512) NOT NULL DEFAULT '' COMMENT '渠道密钥(中通 appSecret / 腾讯跑腿 api_secret 签名密钥, AES-GCM 加密存储)'"),
             ("partner_code", "VARCHAR(64) NOT NULL DEFAULT '' COMMENT '中通电子面单账号'"),
             ("customer_id", "VARCHAR(64) NOT NULL DEFAULT '' COMMENT '中通客户编码(对应 customerId)'"),
             ("partner_key", "VARCHAR(512) NOT NULL DEFAULT '' COMMENT '中通电子面单密码(AES-GCM 加密存储)'"),
             ("partner_type", "VARCHAR(16) NOT NULL DEFAULT '1' COMMENT '中通电子面单类型(对应 partnerType)'"),
-            ("env", "VARCHAR(16) NOT NULL DEFAULT 'sandbox' COMMENT '中通环境 sandbox/prod'"),
+            ("env", "VARCHAR(16) NOT NULL DEFAULT 'sandbox' COMMENT '渠道环境 sandbox/prod'"),
             ("sandbox_openid", "VARCHAR(64) NOT NULL DEFAULT '' COMMENT '微信物流沙盒测试 openid(仅 delivery_id=TEST 时使用)'"),
+            ("goods_type", "INTEGER NOT NULL DEFAULT 12 COMMENT '跑腿物品类别(附录3.3, 默认12其他)'"),
+            ("express_type", "INTEGER NOT NULL DEFAULT 1 COMMENT '跑腿类型(附录3.4, 1特惠拼送 2极速直送)'"),
+            ("callback_url", "VARCHAR(255) NOT NULL DEFAULT '' COMMENT '跑腿订单回调地址(可选)'"),
         ]:
             if _col not in da_columns:
                 conn.execute(

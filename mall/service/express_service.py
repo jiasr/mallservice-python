@@ -13,6 +13,10 @@ import time
 
 from mall.common.wechat_express_utils import WechatExpressClient
 from mall.common.zto_express_utils import ZtoClient, SANDBOX_GATEWAY, PROD_GATEWAY
+from mall.common.tencent_errand_utils import (
+    TencentErrandClient,
+    ERRAND_ORDER_STATUS,
+)
 from mall.db.models.DeliveryAccount.sql import DeliveryAccountDao, _decrypt_password
 
 LOG = logging.getLogger(__name__)
@@ -328,3 +332,147 @@ class ZtoHandler(LogisticsHandler):
 LogisticsAdapter.register("wechat", WechatExpressHandler)
 # 注册中通开放平台 handler
 LogisticsAdapter.register("zto", ZtoHandler)
+
+
+class TencentErrandHandler(LogisticsHandler):
+    """腾讯跑腿(同城即时配送) Handler（provider=tencent）
+
+    下单流程: 先地理编码补全收寄件经纬度与城市编码 -> 询价(取 estimate_deliver_fee)
+    -> 创单(同一 third_order_id 直接创单)。返回 waybill_id=腾讯 order_code。
+    """
+
+    def get_provider_name(self):
+        return "tencent"
+
+    def _build_client(self, config):
+        return TencentErrandClient(
+            api_key=config.get("api_key"),
+            api_secret=config.get("api_secret"),
+            env=config.get("env", "sandbox"),
+        )
+
+    @staticmethod
+    def _addr(name, phone, address, geo):
+        """构造跑腿 AddressInfo（name/phone/address_detail/poi_title/poi_lng/poi_lat）
+        address_detail 与 poi_address 二选一, 此处传 address_detail; poi_title 必填。"""
+        return {
+            "name": name or "",
+            "phone": phone or "",
+            "address_detail": address or "",
+            "poi_title": (geo or {}).get("title") or address or "",
+            "poi_lng": (geo or {}).get("lng"),
+            "poi_lat": (geo or {}).get("lat"),
+        }
+
+    def create_waybill(self, order, config):
+        """跑腿下单：询价 -> 创单，返回 {waybill_id: order_code, waybill_data: 原始响应}
+
+        order 字段: id/consignee_name/tel/province/city/area/address/remark/
+                    total_quantity/total_weight/items
+        config 字段: api_key/api_secret/env + sender_name/sender_tel/sender_address/
+                    lbs_key + goods_type/express_type/order_source/callback
+        """
+        client = self._build_client(config)
+        lbs_key = config.get("lbs_key")
+        # 收/发件人坐标 + 城市编码（跑腿必填经纬度，city_code 需标准行政区划编码）
+        recv = client.geocode(order.get("address", ""), region=order.get("city"), lbs_key=lbs_key)
+        send = client.geocode(
+            config.get("sender_address", ""), region=config.get("sender_city"), lbs_key=lbs_key
+        )
+
+        third_order_id = str(order.get("id"))  # 接入方业务订单号(订单自增主键)
+        goods_type = int(config.get("goods_type") or 12)
+        express_type = int(config.get("express_type") or 1)
+        enable_receive_code = config.get("enable_receive_code", False)
+        sender_addr = self._addr(
+            config.get("sender_name"), config.get("sender_tel"),
+            config.get("sender_address"), send,
+        )
+        receiver_addr = self._addr(
+            order.get("consignee_name") or order.get("consignee"),
+            order.get("tel"), order.get("address"), recv,
+        )
+
+        # 1) 询价（与创单使用同一 third_order_id；5 分钟有效）
+        estimate_biz = {
+            "third_order_id": third_order_id,
+            "city_name": order.get("city", ""),
+            "city_code": recv.get("adcode", ""),
+            "goods_type": goods_type,
+            "goods_weight": float(order.get("total_weight") or config.get("goods_weight") or 1),
+            "express_type": express_type,
+            "order_phone": order.get("tel", ""),
+            "sender_address": sender_addr,
+            "receiver_address": receiver_addr,
+            "enable_receive_code": enable_receive_code,
+            "trade_order_source": config.get("order_source") or "MALL",
+            "trade_order_source_sequence": third_order_id,
+        }
+        if order.get("remark"):
+            estimate_biz["remark"] = order.get("remark")[:200]
+        est = client.estimate_price(estimate_biz)
+        estimate_fee = est.get("total_fee")
+
+        # 2) 创单（回传询价金额，保证与询价一致；直接下单场景可不传）
+        create_biz = {
+            "third_order_id": third_order_id,
+            "city_name": order.get("city", ""),
+            "city_code": recv.get("adcode", ""),
+            "goods_type": goods_type,
+            "goods_weight": float(order.get("total_weight") or config.get("goods_weight") or 1),
+            "order_phone": order.get("tel", ""),
+            "express_type": express_type,
+            "sender_address": sender_addr,
+            "receiver_address": receiver_addr,
+            "enable_receive_code": enable_receive_code,
+            "estimate_deliver_fee": int(estimate_fee) if estimate_fee is not None else None,
+            "trade_order_source": config.get("order_source") or "MALL",
+            "trade_order_source_sequence": third_order_id,
+        }
+        if order.get("remark"):
+            create_biz["remark"] = order.get("remark")[:200]
+        callback = config.get("callback")
+        if callback:
+            create_biz["callback"] = callback
+        resp = client.create_order(create_biz)
+        order_code = resp.get("order_code")
+        return {"waybill_id": order_code, "waybill_data": resp}
+
+    def cancel_waybill(self, waybill_no, config):
+        """取消跑腿订单：本地 shipping_no 存的是腾讯 order_code，故 order_type=1"""
+        client = self._build_client(config)
+        return client.cancel_order(order_id=waybill_no, order_type=1)
+
+    def get_track(self, company, waybill_no):
+        """跑腿轨迹：用 orderStatusChangeNode 拼时间轴（含 order_status 中文）
+
+        跑腿无快递式轨迹, 用订单状态变更节点表达流转; 本地 shipping_no 为腾讯
+        order_code, 故 order_type=1。账号级读取首个启用的 tencent 账号配置。
+        """
+        accs = DeliveryAccountDao.list(1, 1, 1, "tencent")
+        acc = (accs.get("list") or [{}])[0] if accs.get("list") else {}
+        if not acc.get("app_key"):
+            return {"message": "未配置腾讯跑腿账号", "list": []}
+        client = TencentErrandClient(
+            api_key=acc.get("app_key"),
+            api_secret=_decrypt_password(acc.get("app_secret", "")),
+            env=acc.get("env", "sandbox"),
+        )
+        try:
+            resp = client.order_status_change_node(waybill_no, order_type=1)
+        except Fail as e:
+            return {"message": str(e), "list": []}
+        nodes = (resp or {}).get("data") or []
+        track_list = []
+        for it in (nodes if isinstance(nodes, list) else []):
+            st = it.get("order_status")
+            track_list.append({
+                "time": _fmt_ts(it.get("order_change_time")),
+                "status": ERRAND_ORDER_STATUS.get(st) or ("状态码 {}".format(st)),
+                "location": "",
+            })
+        return track_list
+
+
+# 注册腾讯跑腿 handler
+LogisticsAdapter.register("tencent", TencentErrandHandler)

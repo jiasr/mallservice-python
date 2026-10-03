@@ -104,7 +104,7 @@ class DeliveryAccountDao:
     def create(cls, data):
         """新增绑定账号（按 provider 区分渠道存储）"""
         provider = data.get("provider", "wechat")
-        is_zto = provider == "zto"
+        is_zto = provider in ("zto", "tencent")
         session = get_session()
         with session.begin():
             acc = DeliveryAccount(
@@ -116,14 +116,17 @@ class DeliveryAccountDao:
                     data.get("accountName")
                     or (data.get("partnerCode", "") if is_zto else data.get("deliveryId", ""))
                 ),
-                password=_encrypt_password(data.get("password", "")) if not is_zto else "",
+                password=_encrypt_password(data.get("password", "")) if provider == "wechat" else "",
                 app_key=data.get("appKey", "") if is_zto else "",
                 app_secret=_encrypt_password(data.get("appSecret", "")) if is_zto else "",
-                partner_code=data.get("partnerCode", "") if is_zto else "",
-                customer_id=data.get("customerId", "") if is_zto else "",
-                partner_key=_encrypt_password(data.get("partnerKey", "")) if is_zto else "",
-                partner_type=data.get("partnerType", "1") if is_zto else "",
+                partner_code=data.get("partnerCode", "") if provider == "zto" else "",
+                customer_id=data.get("customerId", "") if provider == "zto" else "",
+                partner_key=_encrypt_password(data.get("partnerKey", "")) if provider == "zto" else "",
+                partner_type=data.get("partnerType", "1") if provider == "zto" else "",
                 env=data.get("env", "sandbox") if is_zto else "",
+                goods_type=int(data.get("goodsType") or 12) if provider == "tencent" else 12,
+                express_type=int(data.get("expressType") or 1) if provider == "tencent" else 1,
+                callback_url=data.get("callbackUrl", "") if provider == "tencent" else "",
                 # 散单(现付)账号: 微信侧免绑定, 下单用 cash_biz_id
                 is_cash=1 if data.get("isCash") else 0,
                 # 微信沙盒下单凭证(delivery_id=TEST 时使用的测试 openid)
@@ -168,6 +171,12 @@ class DeliveryAccountDao:
                 acc.partner_type = data["partnerType"]
             if "env" in data:
                 acc.env = data["env"]
+            if "goodsType" in data:
+                acc.goods_type = int(data["goodsType"] or 12)
+            if "expressType" in data:
+                acc.express_type = int(data["expressType"] or 1)
+            if "callbackUrl" in data:
+                acc.callback_url = data["callbackUrl"]
             if "isCash" in data:
                 acc.is_cash = 1 if data["isCash"] else 0
             if "sandboxOpenid" in data:

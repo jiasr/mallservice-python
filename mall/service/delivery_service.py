@@ -21,6 +21,7 @@ from mall.db.models.User.model import User
 from mall.db.models.DeliveryAccount.sql import DeliveryAccountDao, _decrypt_password
 from mall.common.wechat_express_utils import WechatExpressClient, WechatExpressError
 from mall.service.express_service import LogisticsAdapter
+from mall.common.tencent_errand_utils import TencentErrandClient, ERRAND_ORDER_STATUS
 from mall.common.common import Fail
 
 # 中通开放平台错误码 -> 中文描述（覆盖公共/鉴权错误码，便于排查）
@@ -66,7 +67,8 @@ def bind_account(data):
     provider = data.get("provider", "wechat")
     delivery_id = (data.get("deliveryId") or "").strip()
     # 沙盒测试账号(TEST 测试运力)无需、也不能在微信侧绑定, 直接入库即可
-    if provider == "zto" or delivery_id.upper() == "TEST":
+    # 腾讯跑腿(tencent)为 2B 直连接入, 账号参数(api_key/api_secret)本地入库即可, 无需微信侧绑定
+    if provider in ("zto", "tencent") or delivery_id.upper() == "TEST":
         return DeliveryAccountDao.create(data)
     client = WechatExpressClient()
     delivery_id = (data.get('deliveryId') or '').strip()
@@ -139,6 +141,8 @@ def ship(order_no, account_id):
     provider = (acc or {}).get("provider", "wechat")
     if provider == "zto":
         return ship_zto(order_no, account_id)
+    if provider == "tencent":
+        return ship_by_tencent(order_no, account_id)
     return ship_by_wechat(order_no, account_id)
 
 
@@ -402,6 +406,83 @@ def ship_zto(order_no, account_id):
     return {'success': True, 'waybillId': waybill_id, 'waybillData': waybill_payload}
 
 
+def ship_by_tencent(order_no, account_id):
+    """腾讯跑腿(同城即时配送)发货：询价+创单并写回订单物流字段
+
+    跑腿无快递单号概念, 本地 shipping_no 存腾讯侧 order_code 作为后续取消/查询主键。
+    收寄件经纬度与城市编码由腾讯位置服务地理编码补全(需系统设置 tencent_lbs_key)。
+
+    Returns:
+        dict: {success, waybillId(order_code), waybillData}
+    """
+    session = get_session()
+    with session.begin():
+        order = session.query(Order).filter(Order.order_id == order_no).first()
+        if not order:
+            raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
+        if order.order_status != 1:
+            raise Fail("ORDER_CANNOT_SHIP", {}, "当前订单状态不可发货")
+        items = session.query(OrderItem).filter(OrderItem.order_id == order_no).all()
+        acc = DeliveryAccountDao.get_by_id(account_id)
+        if not acc:
+            raise Fail("DELIVERY_ACCOUNT_NOT_FOUND", {}, "快递账号不存在")
+        if acc.get("provider") != "tencent":
+            raise Fail("DELIVERY_ACCOUNT_INVALID", {}, "该账号不是腾讯跑腿渠道")
+        from mall.service.setting_service import get_all_settings
+        settings = get_all_settings()
+        total_qty = sum((it.quantity or 0) for it in items)
+
+    # 收件人省市区(便于地理编码 region 提示, 非跑腿必填字段)
+    r_prov, r_city, r_county = _split_addr(order.consignee_address)
+    sender_address = settings.get('sender_address') or settings.get('site_name', '')
+    order_dict = {
+        'id': order.id,
+        'consignee_name': order.consignee_name,
+        'tel': order.consignee_mobile,
+        'province': r_prov, 'city': r_city, 'area': r_county,
+        'address': order.consignee_address,
+        'city': r_city,
+        'remark': order.remark,
+        'total_quantity': total_qty,
+        'total_weight': sum((float(getattr(it, 'weight', 1) or 1) for it in items)) or float(total_qty),
+        'items': [{'name': it.title, 'quantity': it.quantity} for it in items],
+    }
+    config = {
+        'api_key': acc.get('app_key'),
+        'api_secret': _decrypt_password(acc.get('app_secret', '')),
+        'env': acc.get('env', 'sandbox'),
+        'sender_name': settings.get('site_name', ''),
+        'sender_tel': settings.get('service_phone', ''),
+        'sender_address': sender_address,
+        'sender_city': (settings.get('sender_city') or r_city),
+        'lbs_key': settings.get('tencent_lbs_key', ''),
+        'goods_type': acc.get('goods_type') or 12,
+        'express_type': acc.get('express_type') or 1,
+        'order_source': settings.get('errand_order_source') or 'MALL',
+        'callback': acc.get('callback_url') or '',
+    }
+    handler = LogisticsAdapter.get_handler('tencent')
+    try:
+        result = handler.create_waybill(order_dict, config)
+    except Fail:
+        raise
+    except Exception as e:
+        raise Fail('ERRAND_CREATE_ORDER_FAILED', {}, '腾讯跑腿下单失败：' + str(e))
+    waybill_id = result.get('waybill_id')
+    if not waybill_id:
+        raise Fail('ERRAND_CREATE_ORDER_FAILED', {}, '腾讯跑腿下单失败，未返回订单号')
+
+    session = get_session()
+    with session.begin():
+        order = session.query(Order).filter(Order.order_id == order_no).first()
+        order.shipping_company = '腾讯跑腿'
+        order.shipping_no = waybill_id or ''
+        order.waybill_data = json.dumps(result.get('waybill_data') or {}, ensure_ascii=False)
+        order.order_status = 2  # 已发货(已下单给腾讯运力)
+        order.shipped_at = datetime.datetime.now()
+    return {'success': True, 'waybillId': waybill_id, 'waybillData': result.get('waybill_data')}
+
+
 def get_waybill(order_no):
     """获取订单已生成的电子面单数据（用于预览/补打）
 
@@ -421,6 +502,43 @@ def get_waybill(order_no):
     except Exception:
         data = []
     return {'success': True, 'waybillData': data or []}
+
+
+def get_errand_detail(order_no):
+    """获取腾讯跑腿订单详情（orderDetail）
+
+    本地 shipping_no 存腾讯 order_code, 以 order_type=1 查询。返回原始 detail
+    （含 order_status/费用/骑手/取送件照片等），供后台运单详情展示。
+    """
+    session = get_session()
+    with session.begin():
+        order = session.query(Order).filter(Order.order_id == order_no).first()
+        if not order:
+            raise Fail("ORDER_NOT_FOUND", {}, "订单不存在")
+        waybill_no = order.shipping_no or ''
+        company = order.shipping_company or ''
+    if company != '腾讯跑腿':
+        raise Fail("NOT_ERRAND_ORDER", {}, "该订单不是腾讯跑腿订单")
+    if not waybill_no:
+        raise Fail("NO_WAYBILL", {}, "该订单没有跑腿订单号")
+    accs = DeliveryAccountDao.list(1, 1, 1, 'tencent')
+    acc = (accs.get('list') or [{}])[0] if accs.get('list') else {}
+    if not acc.get('app_key'):
+        raise Fail('ERRAND_ACCOUNT_NOT_FOUND', {}, '未配置可用的腾讯跑腿账号')
+    client = TencentErrandClient(
+        api_key=acc.get('app_key'),
+        api_secret=_decrypt_password(acc.get('app_secret', '')),
+        env=acc.get('env', 'sandbox'),
+    )
+    detail = client.order_detail(waybill_no, order_type=1)
+    st = detail.get('order_status')
+    return {
+        'success': True,
+        'orderCode': waybill_no,
+        'orderStatus': st,
+        'orderStatusDesc': ERRAND_ORDER_STATUS.get(st) or ('状态码 {}'.format(st)),
+        'detail': detail,
+    }
 
 
 # 微信运单状态码 -> 中文（batchgetorder 返回的 order_status：0正常 1取消）
@@ -477,19 +595,22 @@ def list_waybills(params):
         items = []
         for o in rows:
             is_zto = (o.shipping_company or '') == '中通快递'
+            is_errand = (o.shipping_company or '') == '腾讯跑腿'
             items.append({
                 'orderNo': o.order_id,
                 # 下单给微信的 order_id 是自增主键, 批量查询/取消必须用同一个
                 'innerId': str(o.id),
                 'waybillNo': o.shipping_no or '',
                 'company': o.shipping_company or '',
-                'channel': '中通开放平台' if is_zto else ('微信物流助手' if o.waybill_data else '手动发货'),
+                'channel': '腾讯跑腿' if is_errand else (
+                    '中通开放平台' if is_zto else ('微信物流助手' if o.waybill_data else '手动发货')),
                 'consignee': o.consignee_name or '',
                 'mobile': o.consignee_mobile or '',
                 'address': o.consignee_address or '',
                 'orderStatus': o.order_status,
                 'shippedAt': _fmt(o.shipped_at),
                 'isZto': is_zto,
+                'isErrand': is_errand,
                 'hasWaybill': bool(o.waybill_data),
                 'waybillState': '',
                 'waybillStateDesc': '',
@@ -497,7 +618,35 @@ def list_waybills(params):
 
     if items and str(params.get('withWxStatus')) in ('1', 'true', 'True'):
         _fill_wx_waybill_status(items)
+        _fill_errand_status(items)
     return {'data': {'total': total, 'list': items}}
+
+
+def _fill_errand_status(items):
+    """批量拉取腾讯跑腿订单状态（orderDetail），失败不影响列表返回"""
+    targets = [i for i in items if i.get('isErrand') and i['waybillNo']]
+    if not targets:
+        return
+    accs = DeliveryAccountDao.list(1, 1, 1, 'tencent')
+    acc = (accs.get('list') or [{}])[0] if accs.get('list') else {}
+    if not acc.get('app_key'):
+        return
+    client = TencentErrandClient(
+        api_key=acc.get('app_key'),
+        api_secret=_decrypt_password(acc.get('app_secret', '')),
+        env=acc.get('env', 'sandbox'),
+    )
+    for c in targets:
+        try:
+            # 本地 shipping_no 存腾讯 order_code -> order_type=1
+            detail = client.order_detail(c['waybillNo'], order_type=1)
+        except Exception as e:
+            LOG.warning("查询腾讯跑腿订单状态失败 order_code=%s: %s", c['waybillNo'], e)
+            continue
+        st = detail.get('order_status')
+        c['waybillState'] = st
+        c['waybillStateDesc'] = ERRAND_ORDER_STATUS.get(st) or ('状态码 {}'.format(st))
+        c['errandDetail'] = detail
 
 
 def _fill_wx_waybill_status(items):
@@ -549,6 +698,9 @@ def get_waybill_print(order_no):
         raise Fail("NO_WAYBILL", {}, "该订单没有运单号")
     if not local_raw:
         raise Fail("NO_WAYBILL_DATA", {}, "该订单没有电子面单数据（可能是手动发货）")
+
+    if company == '腾讯跑腿':
+        raise Fail("ERRAND_NO_FACE_SHEET", {}, "跑腿订单无电子面单，可在运单详情查看取送件信息")
 
     if company == '中通快递':
         try:
@@ -662,6 +814,14 @@ def cancel_waybill(order_no, force=False):
             if not force:
                 raise
             channel_msg = '中通撤销失败，已强制本地撤销：' + str(e)
+    elif waybill_data and company == '腾讯跑腿':
+        try:
+            _cancel_tencent_waybill(waybill_no)
+            channel_msg = '跑腿订单已向腾讯侧取消'
+        except Fail as e:
+            if not force:
+                raise
+            channel_msg = '腾讯跑腿取消失败，已强制本地撤销：' + str(e)
     elif waybill_data and company:
         try:
             _cancel_wechat_waybill(inner_id, waybill_no, company)
@@ -734,9 +894,38 @@ def _cancel_zto_waybill(waybill_no):
     return True
 
 
+def _cancel_tencent_waybill(waybill_no):
+    """向腾讯跑腿取消订单：本地 shipping_no 存的是腾讯 order_code(order_type=1)"""
+    accs = DeliveryAccountDao.list(1, 1, 1, 'tencent')
+    acc = (accs.get('list') or [{}])[0] if accs.get('list') else {}
+    if not acc.get('app_key'):
+        raise Fail('ERRAND_ACCOUNT_NOT_FOUND', {}, '未配置可用的腾讯跑腿账号，无法取消')
+    client = TencentErrandClient(
+        api_key=acc.get('app_key'),
+        api_secret=_decrypt_password(acc.get('app_secret', '')),
+        env=acc.get('env', 'sandbox'),
+    )
+    resp = client.cancel_order(order_id=waybill_no, order_type=1)
+    # 响应 code 仅表业务响应正常, 实际成败看 cancel_result 字段
+    if isinstance(resp, dict) and resp.get('cancel_result') is False:
+        reason = resp.get('cancel_fail_reason') or '腾讯侧未给出原因'
+        raise Fail('ERRAND_CANCEL_FAILED', {}, '腾讯跑腿取消失败：{}'.format(reason))
+    return True
+
+
 def query_track(delivery_id, waybill_id):
-    """查询物流轨迹（按渠道）"""
-    handler = LogisticsAdapter.get_handler(delivery_id if delivery_id in ("zto",) else 'wechat')
+    """查询物流轨迹（按渠道）
+
+    delivery_id 可能是渠道标识(tencent/zto)或展示用公司名(腾讯跑腿/中通快递),
+    统一归一化到 provider 后再取 handler。
+    """
+    if delivery_id in ("tencent", "腾讯跑腿"):
+        delivery_id = "tencent"
+    elif delivery_id in ("zto", "中通快递"):
+        delivery_id = "zto"
+    else:
+        delivery_id = "wechat"
+    handler = LogisticsAdapter.get_handler(delivery_id)
     return handler.get_track(delivery_id, waybill_id)
 
 
